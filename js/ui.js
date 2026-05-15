@@ -148,7 +148,7 @@ export function setMarketsLoading(event) {
   currentEvent = event;
   resetCsvOutput("Loading markets...");
   resetPlayers("Loading players...");
-  elements.marketsList.replaceChildren(createEmptyState("Loading markets..."));
+  elements.marketsList.replaceChildren(createEmptyState("Loading markets...", "⏳"));
 }
 
 export function setMarketsError(error) {
@@ -157,7 +157,7 @@ export function setMarketsError(error) {
   currentMarkets = [];
   resetCsvOutput("Unable to generate CSV");
   resetPlayers("Unable to load players");
-  elements.marketsList.replaceChildren(createEmptyState("Unable to load markets."));
+  elements.marketsList.replaceChildren(createEmptyState("Unable to load markets.", "⚠️"));
 }
 
 export function resetMarkets() {
@@ -167,8 +167,9 @@ export function resetMarkets() {
   currentEvent = null;
   resetCsvOutput("Choose an event first");
   resetPlayers();
-  elements.marketsList.replaceChildren(createEmptyState("Choose an event first"));
+  elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
 }
+
 
 export function renderMarkets(markets) {
   currentMarkets = markets;
@@ -180,7 +181,7 @@ export function renderMarkets(markets) {
   if (!markets.length) {
     resetCsvOutput("No markets for CSV");
     resetPlayers("No players detected");
-    elements.marketsList.replaceChildren(createEmptyState("No markets found"));
+    elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
     return;
   }
 
@@ -206,7 +207,7 @@ export function renderMarketsForCurrentFilter() {
   elements.addToCsvButton.disabled = !query;
 
   if (!currentMarkets.length) {
-    elements.marketsList.replaceChildren(createEmptyState("No markets found"));
+    elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
     return;
   }
 
@@ -215,7 +216,7 @@ export function renderMarketsForCurrentFilter() {
 
   if (!query) {
     if (!tabFiltered.length) {
-      elements.marketsList.replaceChildren(createEmptyState("No markets in this category"));
+      elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
       return;
     }
     elements.marketsList.replaceChildren(...tabFiltered.map(createMarketCard));
@@ -225,7 +226,7 @@ export function renderMarketsForCurrentFilter() {
   const grouped = groupOddsForPlayer(query, tabFiltered);
 
   if (!grouped.length) {
-    elements.marketsList.replaceChildren(createEmptyState(`No odds found for "${query}"`));
+    elements.marketsList.replaceChildren(createEmptyState(`No odds found for "${query}"`, "👤"));
     return;
   }
 
@@ -534,7 +535,7 @@ function formatMatchName(event) {
 }
 
 function formatEventOption(event) {
-  return `${event.matchDate} | ${formatMatchName(event)} | ${event.marketCount} markets`;
+  return formatMatchName(event);
 }
 
 function createMarketCard(market) {
@@ -593,9 +594,14 @@ function createOddButton(odd, contextText = "", comboMarketName = null) {
   return wrapper;
 }
 
-function createEmptyState(text) {
+function createEmptyState(text, icon = "📋") {
   const empty = document.createElement("div");
+  const iconEl = document.createElement("span");
+  const textEl = document.createElement("span");
   empty.className = "empty-state";
-  empty.textContent = text;
+  iconEl.className = "empty-icon";
+  iconEl.textContent = icon;
+  textEl.textContent = text;
+  empty.append(iconEl, textEl);
   return empty;
 }

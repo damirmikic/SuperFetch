@@ -3,81 +3,115 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SuperFetch</title>
+    <title>SuperFetch — Sportsbook Feed</title>
+    <meta name="description" content="Professional sportsbook odds feed and CSV export tool for soccer competitions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <main class="app-shell">
-      <section class="toolbar" aria-labelledby="app-title">
-        <div>
-          <p class="eyebrow">SuperFetch</p>
-          <h1 id="app-title">Soccer Competitions</h1>
-        </div>
-        <button id="refresh-button" class="icon-button" type="button" title="Refresh competitions" aria-label="Refresh competitions">
-          &#8635;
-        </button>
-      </section>
+    <div class="app-root">
 
-      <section class="control-panel" aria-label="Competition selector">
-        <label class="field">
-          <span>Competition</span>
-          <select id="competition-select" disabled>
-            <option>Loading competitions...</option>
-          </select>
-        </label>
-        <div id="status" class="status" role="status">Starting fetch...</div>
-      </section>
-
-      <section class="events-panel" aria-labelledby="events-title">
-        <div class="events-header">
+      <!-- ── Header / Toolbar ── -->
+      <header class="topbar" aria-labelledby="app-title">
+        <div class="topbar-brand">
+          <span class="brand-icon" aria-hidden="true">⚡</span>
           <div>
-            <p class="eyebrow">Prematch</p>
-            <h2 id="events-title">Events</h2>
+            <span class="brand-tag">Trading Terminal</span>
+            <h1 id="app-title" class="brand-name">SuperFetch</h1>
           </div>
-          <div id="events-status" class="status" role="status">Choose a competition</div>
         </div>
-        <label class="field event-field">
-          <span>Event</span>
-          <select id="event-select" disabled>
-            <option>Choose a competition first</option>
-          </select>
-        </label>
-      </section>
+        <div class="topbar-controls">
+          <label class="field field--inline" aria-label="Select competition">
+            <span class="field-label">Competition</span>
+            <select id="competition-select" disabled>
+              <option>Loading competitions...</option>
+            </select>
+          </label>
+          <div id="status" class="status-pill" role="status">Starting…</div>
+          <button id="refresh-button" class="icon-btn" type="button" title="Refresh competitions" aria-label="Refresh competitions">
+            <span aria-hidden="true">↺</span>
+          </button>
+        </div>
+      </header>
 
-      <section class="markets-panel" aria-labelledby="markets-title">
-        <div class="events-header">
-          <div>
-            <p class="eyebrow">Odds</p>
-            <h2 id="markets-title">Markets</h2>
+      <!-- ── Main workspace ── -->
+      <main class="workspace">
+
+        <!-- Left column: event picker -->
+        <aside class="sidebar" aria-labelledby="events-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Prematch</span>
+              <h2 id="events-title" class="panel-title">Events</h2>
+            </div>
+            <div id="events-status" class="status-pill" role="status">Pick a competition</div>
           </div>
-          <div id="markets-status" class="status" role="status">Choose an event</div>
-        </div>
-        <label class="field event-field">
-          <span>Player</span>
-          <select id="player-select" disabled>
-            <option>Choose an event first</option>
-          </select>
-        </label>
-        <div class="market-tabs" role="tablist" aria-label="Market type">
-          <button class="market-tab is-active" role="tab" aria-selected="true"  data-tab="all"        id="tab-all"        aria-controls="markets-list">All</button>
-          <button class="market-tab"            role="tab" aria-selected="false" data-tab="standard"   id="tab-standard"   aria-controls="markets-list">Obično</button>
-          <button class="market-tab"            role="tab" aria-selected="false" data-tab="statistika" id="tab-statistika" aria-controls="markets-list">Statistika</button>
-          <button class="market-tab"            role="tab" aria-selected="false" data-tab="specijali"  id="tab-specijali"  aria-controls="markets-list">Specijali</button>
-        </div>
-        <div class="csv-panel" aria-label="CSV output">
-          <div class="csv-actions">
-            <button id="generate-csv-button" class="secondary-button" type="button" disabled>Generate CSV</button>
-            <button id="add-to-csv-button" class="secondary-button" type="button" disabled>Add to CSV</button>
-            <button id="download-csv-button" class="secondary-button" type="button" disabled>Download CSV</button>
-            <div id="csv-status" class="status" role="status">Choose an event first</div>
+          <label class="field" style="margin-top:16px">
+            <span class="field-label">Event</span>
+            <select id="event-select" disabled>
+              <option>Choose a competition first</option>
+            </select>
+          </label>
+        </aside>
+
+        <!-- Right column: markets + CSV -->
+        <section class="markets-panel" aria-labelledby="markets-title">
+
+          <!-- Markets header -->
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Odds</span>
+              <h2 id="markets-title" class="panel-title">Markets</h2>
+            </div>
+            <div id="markets-status" class="status-pill" role="status">Choose an event</div>
           </div>
-          <textarea id="csv-output" class="csv-output" spellcheck="false" placeholder="CSV output will appear here"></textarea>
-        </div>
-        <div id="markets-list" class="markets-list" aria-live="polite">
-          <div class="empty-state">Choose an event first</div>
-        </div>
-      </section>
-    </main>
+
+          <!-- Player filter -->
+          <label class="field" style="margin-top:16px">
+            <span class="field-label">Player filter</span>
+            <select id="player-select" disabled>
+              <option>Choose an event first</option>
+            </select>
+          </label>
+
+          <!-- Market type tabs -->
+          <div class="market-tabs" role="tablist" aria-label="Market type">
+            <button class="market-tab is-active" role="tab" aria-selected="true"  data-tab="all"        id="tab-all"        aria-controls="markets-list">All</button>
+            <button class="market-tab"           role="tab" aria-selected="false" data-tab="standard"   id="tab-standard"   aria-controls="markets-list">Obično</button>
+            <button class="market-tab"           role="tab" aria-selected="false" data-tab="statistika" id="tab-statistika" aria-controls="markets-list">Statistika</button>
+            <button class="market-tab"           role="tab" aria-selected="false" data-tab="specijali"  id="tab-specijali"  aria-controls="markets-list">Specijali</button>
+          </div>
+
+          <!-- CSV toolbar -->
+          <div class="csv-panel" aria-label="CSV output">
+            <div class="csv-actions">
+              <button id="generate-csv-button" class="action-btn" type="button" disabled>
+                <span class="btn-icon">⬇</span> Generate CSV
+              </button>
+              <button id="add-to-csv-button" class="action-btn" type="button" disabled>
+                <span class="btn-icon">＋</span> Add Player
+              </button>
+              <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled>
+                <span class="btn-icon">⤓</span> Download
+              </button>
+              <div id="csv-status" class="csv-status-text" role="status">Choose an event first</div>
+            </div>
+            <textarea id="csv-output" class="csv-output" spellcheck="false" placeholder="CSV output will appear here…"></textarea>
+          </div>
+
+          <!-- Markets list -->
+          <div id="markets-list" class="markets-list" aria-live="polite">
+            <div class="empty-state">
+              <span class="empty-icon">📋</span>
+              <span>Choose an event to load markets</span>
+            </div>
+          </div>
+
+        </section>
+      </main>
+    </div>
 
     <script type="module" src="./js/main.js"></script>
   </body>

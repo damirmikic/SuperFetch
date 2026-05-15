@@ -1,303 +1,511 @@
+/* ─────────────────────────────────────────
+   Design tokens — dark sportsbook palette
+───────────────────────────────────────── */
 :root {
-  color-scheme: light;
-  --bg: #f5f7f9;
-  --panel: #ffffff;
-  --text: #18202a;
-  --muted: #687384;
-  --line: #dce2ea;
-  --accent: #d71920;
-  --accent-dark: #a81117;
-  --focus: #0f6bff;
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --bg:           #0d1117;
+  --surface:      #161b22;
+  --surface-2:    #1c2230;
+  --surface-3:    #222c3a;
+
+  /* Borders */
+  --line:         #2a3447;
+  --line-bright:  #3a4a62;
+
+  /* Text */
+  --text:         #e6edf3;
+  --text-2:       #8b949e;
+  --text-3:       #6e7681;
+
+  /* Accent — vivid green (sportsbook primary) */
+  --accent:       #00c853;
+  --accent-dark:  #00a040;
+  --accent-glow:  rgba(0, 200, 83, 0.18);
+
+  /* Red for odds / danger */
+  --red:          #f85149;
+  --red-dark:     #c93c35;
+
+  /* Gold for highlight chips */
+  --gold:         #f0b429;
+
+  /* Focus */
+  --focus:        rgba(0, 200, 83, 0.35);
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* Transitions */
+  --t: 0.15s ease;
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-height: 100vh;
   background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,200,83,0.07) 0%, transparent 70%);
   color: var(--text);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-.app-shell {
-  width: min(960px, calc(100vw - 32px));
-  margin: 40px auto;
+/* ─── App root ─── */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-.toolbar,
-.control-panel,
-.events-panel,
-.markets-panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.toolbar {
+/* ═══════════════════════════════════════
+   TOP BAR
+═══════════════════════════════════════ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px;
+  gap: 20px;
+  padding: 0 28px;
+  height: 64px;
+  background: rgba(13, 17, 23, 0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-h1 {
-  margin: 0;
-  font-size: 26px;
-  line-height: 1.2;
-}
-
-.icon-button {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
-  color: var(--text);
-  cursor: pointer;
+.brand-icon {
   font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(0,200,83,0.6));
+}
+
+.brand-tag {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 3px;
+}
+
+.brand-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
   line-height: 1;
 }
 
-.secondary-button {
-  min-height: 38px;
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+/* ─── Icon button ─── */
+.icon-btn {
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
-  color: var(--text);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 8px 12px;
-}
-
-.secondary-button:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.secondary-button:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
-  background: #f0f3f7;
-}
-
-.icon-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.control-panel {
+  font-size: 18px;
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
-  gap: 16px;
-  align-items: end;
-  margin-top: 16px;
-  padding: 20px 24px;
+  place-items: center;
+  transition: border-color var(--t), color var(--t), background var(--t);
+  flex-shrink: 0;
 }
 
+.icon-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════
+   WORKSPACE (sidebar + main)
+═══════════════════════════════════════ */
+.workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 0;
+  flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ─── Shared panel base ─── */
+.sidebar,
+.markets-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px 20px;
+  overflow: hidden;
+}
+
+/* ─── Panel heading area ─── */
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* ─── Status pills ─── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 0;
+  transition: color var(--t);
+}
+
+.status-pill.is-error {
+  border-color: var(--red);
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.1);
+}
+
+/* ─── Fields / selects ─── */
 .field {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
-.field span {
-  color: var(--muted);
-  font-size: 13px;
+.field-label {
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.field--inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field--inline .field-label {
+  white-space: nowrap;
 }
 
 select {
   width: 100%;
-  min-height: 42px;
+  min-height: 40px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
   color: var(--text);
-  font-size: 15px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
   padding: 8px 12px;
+  cursor: pointer;
+  transition: border-color var(--t);
+  appearance: auto;
 }
 
-select:focus,
-.icon-button:focus,
-.secondary-button:focus,
-.csv-output:focus {
-  outline: 3px solid rgba(15, 107, 255, 0.22);
+select:focus {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+  border-color: var(--accent);
 }
 
 select:disabled {
-  color: var(--muted);
-  background: #f0f3f7;
+  color: var(--text-3);
+  background: var(--surface);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.status {
-  min-width: 190px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: right;
-}
-
-.status.is-error {
-  color: var(--accent-dark);
-  font-weight: 700;
-}
-
-.events-panel,
-.markets-panel {
-  margin-top: 16px;
-  padding: 20px 24px;
-}
-
-.events-header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 16px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 16px;
-}
-
-h2 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.25;
-}
-
-.event-field {
-  margin-top: 16px;
-}
-
+/* ═══════════════════════════════════════
+   MARKET TABS
+═══════════════════════════════════════ */
 .market-tabs {
   display: flex;
-  gap: 4px;
-  margin-top: 16px;
-  border-bottom: 2px solid var(--line);
-  padding-bottom: 0;
+  gap: 6px;
+  margin-top: 20px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 .market-tab {
-  position: relative;
-  padding: 8px 18px;
+  flex: 1;
+  padding: 8px 12px;
   border: none;
-  border-radius: 6px 6px 0 0;
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-2);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  transition: color 0.15s, background 0.15s;
-  bottom: -2px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: color var(--t), background var(--t);
+  white-space: nowrap;
 }
 
 .market-tab:hover {
   color: var(--text);
-  background: var(--bg);
+  background: var(--surface-3);
 }
 
 .market-tab.is-active {
-  color: var(--accent);
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-bottom-color: var(--panel);
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,200,83,0.35);
 }
 
+.market-tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* ═══════════════════════════════════════
+   CSV PANEL
+═══════════════════════════════════════ */
 .csv-panel {
   display: grid;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 18px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
 }
 
 .csv-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.csv-actions .status {
+/* ─── Action buttons ─── */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t), color var(--t), background var(--t);
+  white-space: nowrap;
+}
+
+.action-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-btn--primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.action-btn--primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+}
+
+.btn-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.action-btn:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.csv-status-text {
   margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-align: right;
 }
 
 .csv-output {
   width: 100%;
-  min-height: 132px;
+  min-height: 120px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfcfe;
-  color: var(--text);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 12px;
-  line-height: 1.45;
-  padding: 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--accent);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.55;
+  padding: 10px 12px;
   resize: vertical;
+  transition: border-color var(--t);
 }
 
+.csv-output:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--accent);
+}
+
+/* ═══════════════════════════════════════
+   MARKETS LIST
+═══════════════════════════════════════ */
 .markets-list {
   display: grid;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-
+/* ─── Market card ─── */
 .market-card {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(320px, 2fr);
+  grid-template-columns: minmax(200px, 1fr) minmax(280px, 2fr);
   gap: 12px;
   align-items: start;
+  background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 14px;
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  transition: border-color var(--t);
+}
+
+.market-card:hover {
+  border-color: var(--line-bright);
 }
 
 .market-title {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.35;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
 }
 
 .market-subtitle {
   grid-column: 1 / -1;
-  margin: -4px 0 0;
-  color: var(--muted);
-  font-size: 12px;
+  margin: -6px 0 0;
+  font-size: 11px;
+  color: var(--text-3);
 }
 
+/* Combo (Specijali) card tint */
+.market-card--combo {
+  border-color: rgba(0,200,83,0.2);
+  background: rgba(0,200,83,0.04);
+}
+
+.market-card--combo:hover {
+  border-color: rgba(0,200,83,0.4);
+}
+
+/* ─── Odds grid ─── */
 .odds-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
   justify-content: flex-end;
 }
 
+/* ─── Odd chip ─── */
 .odd-button {
-  flex: 0 0 112px;
-  min-height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #f9fbfd;
+  flex: 0 0 108px;
+  min-height: 48px;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
   color: var(--text);
   cursor: default;
-  padding: 7px 9px;
+  padding: 7px 10px;
   text-align: left;
+  transition: border-color var(--t), background var(--t);
 }
 
 .odd-button:hover {
   border-color: var(--accent);
-  background: #fffafa;
+  background: var(--accent-glow);
 }
 
 .odd-label,
@@ -306,35 +514,46 @@ h2 {
 }
 
 .odd-label {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
   overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 .odd-price {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 5px;
+  font-size: 17px;
   font-weight: 700;
+  color: var(--gold);
+  letter-spacing: -0.01em;
 }
 
+/* ─── Empty state ─── */
 .empty-state {
-  border: 1px dashed var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed var(--line-bright);
+  border-radius: var(--r-md);
+  color: var(--text-3);
+  padding: 36px 20px;
   text-align: center;
+  font-size: 13px;
 }
 
-/* Combo (Specijali) market card — slightly tinted border to distinguish */
-.market-card--combo {
-  border-color: #b8c9e0;
-  background: #f8fafd;
+.empty-icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.5;
 }
 
-/* Wrapper that pairs an odd chip with its inline + button */
+/* ═══════════════════════════════════════
+   COMBO ODD WRAPPER (specijali +button)
+═══════════════════════════════════════ */
 .combo-odd-wrapper {
-  flex: 0 0 112px;
+  flex: 0 0 108px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -345,34 +564,36 @@ h2 {
   width: 100%;
 }
 
-/* Inline add button shown on specijali odds */
 .add-odd-button--inline {
   width: 100%;
-  height: 24px;
-  border: 1px solid var(--line);
+  height: 22px;
+  border: 1px solid var(--line-bright);
   border-radius: 5px;
-  background: #ffffff;
+  background: var(--surface-2);
   color: var(--accent);
   cursor: pointer;
-  font-size: 14px;
+  font-family: inherit;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1;
   padding: 0;
   display: grid;
   place-items: center;
+  transition: border-color var(--t), background var(--t), color var(--t);
 }
 
 .add-odd-button--inline:hover:not(:disabled) {
   border-color: var(--accent);
-  background: #fffafa;
+  background: var(--accent-glow);
 }
 
 .add-odd-button--inline.is-added {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: #000;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 800;
 }
 
 .add-odd-button--inline.is-added:hover {
@@ -380,36 +601,78 @@ h2 {
   border-color: var(--accent-dark);
 }
 
+/* ═══════════════════════════════════════
+   PLAYER PROP ROWS
+═══════════════════════════════════════ */
 .player-results {
-  border-color: #dba6ad;
-}
-
-.player-results {
+  border-color: rgba(0,200,83,0.25);
+  background: rgba(0,200,83,0.03);
   grid-template-columns: 1fr;
 }
 
 .player-odds-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .player-odd-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 76px;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
+  background: var(--surface-3);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #f9fbfd;
-  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  transition: border-color var(--t);
 }
 
+.player-odd-row:hover {
+  border-color: var(--line-bright);
+}
+
+.player-odd-text {
+  min-width: 0;
+}
+
+.player-odd-market {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.player-odd-name {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.player-odd-price {
+  justify-self: end;
+  min-width: 60px;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+/* ─── Player prop add button ─── */
 .add-odd-button {
   width: 28px;
   height: 28px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
   color: var(--accent);
   cursor: pointer;
   font-size: 18px;
@@ -419,19 +682,21 @@ h2 {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  transition: border-color var(--t), background var(--t), color var(--t);
 }
 
 .add-odd-button:hover:not(:disabled) {
   border-color: var(--accent);
-  background: #fffafa;
+  background: var(--accent-glow);
 }
 
 .add-odd-button.is-added {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: #000;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 800;
 }
 
 .add-odd-button.is-added:hover {
@@ -439,76 +704,61 @@ h2 {
   border-color: var(--accent-dark);
 }
 
-.player-odd-text {
-  min-width: 0;
+/* ─── Player group card ─── */
+.market-subtitle {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
 }
 
-.player-odd-market {
-  display: block;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.player-odd-name {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.player-odd-price {
-  justify-self: end;
-  min-width: 64px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 7px 8px;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-@media (max-width: 680px) {
-  .app-shell {
-    width: min(100vw - 20px, 960px);
-    margin: 20px auto;
-  }
-
-  .toolbar,
-  .control-panel {
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+@media (max-width: 860px) {
+  .workspace {
+    grid-template-columns: 1fr;
     padding: 16px;
+    gap: 14px;
   }
 
-  .control-panel,
-  .events-header {
-    grid-template-columns: 1fr;
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 16px;
+    gap: 10px;
   }
 
-  .events-header {
-    display: grid;
-    grid-template-columns: 1fr;
+  .topbar-controls {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .market-card {
     grid-template-columns: 1fr;
   }
 
-.odds-grid {
-    justify-content: start;
+  .odds-grid {
+    justify-content: flex-start;
   }
 
-  .status {
-    min-width: 0;
-    text-align: left;
+  .market-tabs {
+    gap: 4px;
   }
 
-  .csv-actions .status {
-    width: 100%;
-    margin-left: 0;
+  .market-tab {
+    font-size: 11px;
+    padding: 7px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .csv-actions {
+    gap: 6px;
+  }
+
+  .action-btn {
+    padding: 6px 10px;
+    font-size: 11px;
   }
 }
