@@ -1,5 +1,5 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, countCsvRows, CSV_COLUMNS, generateOddsCsv, generatePlayerBlock, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, generatePlayerBlock, makeCsvFilename } from "./csv.js";
 import {
   getCurrentMarkets,
   getSelectedCompetition,
@@ -7,6 +7,7 @@ import {
   getSelectedPlayer,
   getElements,
   getCsvOutput,
+  initMarketTabs,
   renderMarkets,
   renderMarketsForCurrentFilter,
   renderCsvOutput,
@@ -130,9 +131,71 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   }
 
   renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  button.dataset.csvRow = row;
   button.textContent = "✓";
+  button.title = "Remove from CSV";
   button.classList.add("is-added");
-  button.disabled = true;
+  // intentionally NOT disabled — user can click again to remove
+});
+
+document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
+  const rowToRemove = button.dataset.csvRow;
+  if (!rowToRemove) return;
+
+  const existing = getCsvOutput();
+  const newCsv = removeCsvRow(existing, rowToRemove);
+
+  const event = getSelectedEvent();
+  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+
+  delete button.dataset.csvRow;
+  button.textContent = "+";
+  button.title = "Add to CSV";
+  button.classList.remove("is-added");
+});
+
+document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button } }) => {
+  const event = getSelectedEvent();
+  if (!event) return;
+
+  // Always compute the plain data row — we store it for later removal
+  const row = buildSpecijalRow({ event, marketName, odd });
+  if (!row) return;
+
+  const existing = getCsvOutput().trim();
+  let newCsv;
+
+  if (existing) {
+    newCsv = `${existing}\r\n${row}`;
+  } else {
+    const block = buildSpecijaliBlock({ event, marketName, odd });
+    if (!block) return;
+    newCsv = `${CSV_COLUMNS.join(",")}\r\n${block}`;
+  }
+
+  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
+  // Store the exact row string so the remove handler can find it
+  button.dataset.csvRow = row;
+  button.textContent = "✓";
+  button.title = "Remove from CSV";
+  button.classList.add("is-added");
+  // intentionally NOT disabled — user can click again to remove
+});
+
+document.addEventListener("remove-specijal-from-csv", ({ detail: { button } }) => {
+  const rowToRemove = button.dataset.csvRow;
+  if (!rowToRemove) return;
+
+  const existing = getCsvOutput();
+  const newCsv = removeSpecijalRowFromCsv(existing, rowToRemove);
+
+  const event = getSelectedEvent();
+  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
+
+  delete button.dataset.csvRow;
+  button.textContent = "+";
+  button.title = "Add to CSV as Specijali";
+  button.classList.remove("is-added");
 });
 
 function formatPlayerName(value) {
@@ -141,6 +204,7 @@ function formatPlayerName(value) {
 }
 
 loadCompetitions();
+initMarketTabs();
 
 function addToCurrentCsv() {
   const event = getSelectedEvent();

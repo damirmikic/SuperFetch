@@ -7,6 +7,37 @@ export function buildSingleOddCsvRow({ event, marketName, odd }) {
   return formatCsvRow([date, time, "", mapped.market, mapped.answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
 }
 
+/**
+ * Build a full specijali block (headers + row) for one odd from a combo market.
+ * MATCH_NAME: Specijali, LEAGUE_NAME: <home> - <away> (or matchName)
+ */
+export function buildSpecijaliBlock({ event, marketName, odd }) {
+  const row = buildSpecijalRow({ event, marketName, odd });
+  if (!row) return "";
+  const eventName = formatMatchName(event);
+  return [
+    formatCsvRow([`MATCH_NAME:Specijali`]),
+    formatCsvRow([`LEAGUE_NAME:${eventName}`]),
+    row
+  ].join("\r\n");
+}
+
+/**
+ * Build a single CSV data row for a specijali odd (no header lines).
+ */
+export function buildSpecijalRow({ event, marketName, odd }) {
+  const { date, time } = formatEventDateTime(event.matchDate);
+  const market = String(marketName).trim();
+  const answer = String(odd.name).trim();
+  if (!market || !answer) return "";
+  return formatCsvRow([date, time, "", market, answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
+}
+
+function formatMatchName(event) {
+  if (event.homeTeam && event.awayTeam) return `${event.homeTeam} - ${event.awayTeam}`;
+  return event.matchName || "";
+}
+
 export function generatePlayerBlock({ event, markets, playerName }) {
   const rows = [];
   const playerRows = buildPlayerRows({ event, markets, playerName });
@@ -38,6 +69,64 @@ export function generateOddsCsv({ event, markets, player }) {
 
 export function countCsvRows(csv) {
   return csv.split(/\r?\n/).filter((row) => row.trim()).length;
+}
+
+/**
+ * Remove a single data row (exact string match) from a CSV string.
+ * Use this for player-prop odds where block-header cleanup is not needed.
+ */
+export function removeCsvRow(csv, rowToRemove) {
+  if (!rowToRemove || !csv) return csv;
+  const lines = csv.split(/\r?\n/);
+  const idx = lines.indexOf(rowToRemove);
+  if (idx === -1) return csv;
+  lines.splice(idx, 1);
+  return lines.filter((l) => l.trim()).join("\r\n");
+}
+
+/**
+ * Remove a specijali data row from the CSV string.
+ * If the surrounding MATCH_NAME:Specijali block becomes empty after removal,
+ * the two orphaned header lines (MATCH_NAME + LEAGUE_NAME) are also stripped.
+ */
+export function removeSpecijalRowFromCsv(csv, rowToRemove) {
+  if (!rowToRemove || !csv) return csv;
+
+  const lines = csv.split(/\r?\n/);
+  const idx = lines.indexOf(rowToRemove);
+  if (idx === -1) return csv;
+
+  // Remove the target data row
+  lines.splice(idx, 1);
+
+  // Walk backwards from the (now-shifted) position to find the owning MATCH_NAME:Specijali header
+  let matchStart = -1;
+  for (let i = Math.min(idx - 1, lines.length - 1); i >= 0; i--) {
+    if (lines[i].startsWith("MATCH_NAME:Specijali")) {
+      matchStart = i;
+      break;
+    }
+    if (lines[i].startsWith("MATCH_NAME:")) break; // different block — stop
+  }
+
+  if (matchStart !== -1) {
+    // Find where this block ends (next MATCH_NAME or EOF)
+    let blockEnd = lines.length;
+    for (let i = matchStart + 1; i < lines.length; i++) {
+      if (lines[i].startsWith("MATCH_NAME:")) { blockEnd = i; break; }
+    }
+
+    // Data rows are everything after the two header lines (MATCH_NAME + LEAGUE_NAME)
+    const dataRows = lines.slice(matchStart + 2, blockEnd).filter((l) => l.trim());
+
+    if (dataRows.length === 0) {
+      // Orphaned block — remove the two header lines
+      lines.splice(matchStart, 2);
+    }
+  }
+
+  const result = lines.filter((l) => l.trim()).join("\r\n");
+  return result;
 }
 
 export function makeCsvFilename(event, player) {

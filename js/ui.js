@@ -11,13 +11,16 @@ const elements = {
   refreshButton: document.querySelector("#refresh-button"),
   eventsStatus: document.querySelector("#events-status"),
   csvStatus: document.querySelector("#csv-status"),
-  marketsStatus: document.querySelector("#markets-status")
+  marketsStatus: document.querySelector("#markets-status"),
+  marketTabs: document.querySelectorAll(".market-tab")
 };
 
 let optionIndex = new Map();
 let eventIndex = new Map();
 let currentMarkets = [];
 let currentEvent = null;
+/** @type {"all"|"standard"|"specijali"} */
+let activeMarketTab = "all";
 
 export function getElements() {
   return elements;
@@ -207,12 +210,19 @@ export function renderMarketsForCurrentFilter() {
     return;
   }
 
+  // Apply active tab filter
+  const tabFiltered = filterMarketsByTab(currentMarkets, activeMarketTab);
+
   if (!query) {
-    elements.marketsList.replaceChildren(...currentMarkets.map(createMarketCard));
+    if (!tabFiltered.length) {
+      elements.marketsList.replaceChildren(createEmptyState("No markets in this category"));
+      return;
+    }
+    elements.marketsList.replaceChildren(...tabFiltered.map(createMarketCard));
     return;
   }
 
-  const grouped = groupOddsForPlayer(query, currentMarkets);
+  const grouped = groupOddsForPlayer(query, tabFiltered);
 
   if (!grouped.length) {
     elements.marketsList.replaceChildren(createEmptyState(`No odds found for "${query}"`));
@@ -220,6 +230,79 @@ export function renderMarketsForCurrentFilter() {
   }
 
   elements.marketsList.replaceChildren(createPlayerGroupCard(query, grouped));
+}
+
+/**
+ * Keywords that identify team-level "statistika" markets.
+ * The match is done on the normalised (lowercased, diacritic-stripped) market name.
+ * A market qualifies when ANY of these terms appears AND the market is not a combo (no ";")
+ * AND is not a player-prop (i.e. it does NOT also match a player-prop word from PROP_WORDS).
+ */
+const STATISTIKA_KEYWORDS = [
+  "korneri", "korner", "corner",
+  "karton", "kartoni", "crveni karton", "zuti karton", "žuti karton",
+  "faul", "faulovi",
+  "ofsajd", "ofsajdi",
+  "autogol", "auto gol", "own goal",
+  "šut", "sut", "sutev", "šuteva", "udarac", "udarci",
+  "šutevi na gol", "sutevi na gol", "šuteve u okvir", "suteve u okvir",
+  "saves", "obrane", "odbrane",
+  "ubačaj", "ubackaj", "throw-in",
+  "slobodan udarac", "slobodni udarac",
+];
+
+/**
+ * Filter markets based on the selected tab.
+ * - "all"        → all markets
+ * - "standard"   → no ";" and not a statistika market
+ * - "statistika" → no ";" and matches at least one statistika keyword, not player-specific
+ * - "specijali"  → contains ";"
+ * @param {Array} markets
+ * @param {"all"|"standard"|"statistika"|"specijali"} tab
+ */
+function filterMarketsByTab(markets, tab) {
+  if (tab === "specijali") return markets.filter((m) =>  m.marketName.includes(";"));
+  if (tab === "all")       return markets;
+
+  // Both "standard" and "statistika" start from non-combo markets
+  const nonCombo = markets.filter((m) => !m.marketName.includes(";"));
+
+  if (tab === "statistika") {
+    return nonCombo.filter((m) => isStatistikaMarket(m.marketName));
+  }
+
+  if (tab === "standard") {
+    return nonCombo.filter((m) => !isStatistikaMarket(m.marketName));
+  }
+
+  return markets;
+}
+
+/**
+ * Returns true if the market name matches a team-level statistika keyword.
+ * Player-prop markets that incidentally contain "šut" or "faul" etc. are excluded
+ * by requiring the keyword to appear without a preceding likely-player-name token.
+ */
+function isStatistikaMarket(marketName) {
+  const norm = normalizeSearchText(marketName);
+  return STATISTIKA_KEYWORDS.some((kw) => norm.includes(normalizeSearchText(kw)));
+}
+
+/** Initialize tab-switching click listeners. Call once on startup. */
+export function initMarketTabs() {
+  for (const tab of elements.marketTabs) {
+    tab.addEventListener("click", () => {
+      activeMarketTab = tab.dataset.tab;
+
+      for (const t of elements.marketTabs) {
+        const active = t === tab;
+        t.classList.toggle("is-active", active);
+        t.setAttribute("aria-selected", String(active));
+      }
+
+      renderMarketsForCurrentFilter();
+    });
+  }
 }
 
 function renderPlayersDropdown(markets) {
@@ -409,7 +492,11 @@ function createPlayerOddRow(marketName, odd) {
   price.textContent = Number.isFinite(odd.price) ? odd.price.toFixed(2) : "-";
 
   addButton.addEventListener("click", () => {
-    document.dispatchEvent(new CustomEvent("add-odd-to-csv", { detail: { marketName, odd, button: addButton } }));
+    if (addButton.classList.contains("is-added")) {
+      document.dispatchEvent(new CustomEvent("remove-odd-from-csv", { detail: { button: addButton } }));
+    } else {
+      document.dispatchEvent(new CustomEvent("add-odd-to-csv", { detail: { marketName, odd, button: addButton } }));
+    }
   });
 
   text.append(market, name);
@@ -454,18 +541,21 @@ function createMarketCard(market) {
   const card = document.createElement("article");
   const title = document.createElement("h3");
   const oddsGrid = document.createElement("div");
+  const isCombo = market.marketName.includes(";");
 
-  card.className = "market-card";
+  card.className = isCombo ? "market-card market-card--combo" : "market-card";
   title.className = "market-title";
   oddsGrid.className = "odds-grid";
   title.textContent = market.marketName;
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isCombo ? market.marketName : null)));
   card.append(title, oddsGrid);
 
   return card;
 }
 
-function createOddButton(odd, contextText = "") {
+function createOddButton(odd, contextText = "", comboMarketName = null) {
+  const isCombo = comboMarketName !== null;
+  const wrapper = isCombo ? document.createElement("div") : null;
   const button = document.createElement("button");
   const label = document.createElement("span");
   const price = document.createElement("span");
@@ -478,7 +568,29 @@ function createOddButton(odd, contextText = "") {
   price.textContent = Number.isFinite(odd.price) ? odd.price.toFixed(2) : "-";
   button.append(label, price);
 
-  return button;
+  if (!isCombo) return button;
+
+  // Combo market: wrap the odd button with an add (+) button
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-odd-button add-odd-button--inline";
+  addBtn.type = "button";
+  addBtn.title = "Add to CSV as Specijali";
+  addBtn.textContent = "+";
+  addBtn.addEventListener("click", () => {
+    if (addBtn.classList.contains("is-added")) {
+      document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", {
+        detail: { button: addBtn }
+      }));
+    } else {
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
+        detail: { marketName: comboMarketName, odd, button: addBtn }
+      }));
+    }
+  });
+
+  wrapper.className = "combo-odd-wrapper";
+  wrapper.append(button, addBtn);
+  return wrapper;
 }
 
 function createEmptyState(text) {

@@ -180,6 +180,41 @@ h2 {
   margin-top: 16px;
 }
 
+.market-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 0;
+}
+
+.market-tab {
+  position: relative;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: color 0.15s, background 0.15s;
+  bottom: -2px;
+}
+
+.market-tab:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.market-tab.is-active {
+  color: var(--accent);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-bottom-color: var(--panel);
+}
+
 .csv-panel {
   display: grid;
   gap: 10px;
@@ -291,6 +326,60 @@ h2 {
   text-align: center;
 }
 
+/* Combo (Specijali) market card — slightly tinted border to distinguish */
+.market-card--combo {
+  border-color: #b8c9e0;
+  background: #f8fafd;
+}
+
+/* Wrapper that pairs an odd chip with its inline + button */
+.combo-odd-wrapper {
+  flex: 0 0 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.combo-odd-wrapper .odd-button {
+  flex: none;
+  width: 100%;
+}
+
+/* Inline add button shown on specijali odds */
+.add-odd-button--inline {
+  width: 100%;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #ffffff;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.add-odd-button--inline:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #fffafa;
+}
+
+.add-odd-button--inline.is-added {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-odd-button--inline.is-added:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
 .player-results {
   border-color: #dba6ad;
 }
@@ -341,8 +430,13 @@ h2 {
   background: var(--accent);
   border-color: var(--accent);
   color: #ffffff;
-  cursor: default;
+  cursor: pointer;
   font-size: 14px;
+}
+
+.add-odd-button.is-added:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
 }
 
 .player-odd-text {
