@@ -133,7 +133,7 @@ select:focus,
 .icon-button:focus,
 .secondary-button:focus,
 .csv-output:focus {
-  outline: 3px solid color-mix(in srgb, var(--focus) 22%, transparent);
+  outline: 3px solid rgba(15, 107, 255, 0.22);
   outline-offset: 2px;
 }
 
@@ -292,7 +292,7 @@ h2 {
 }
 
 .player-results {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-color: #dba6ad;
 }
 
 .player-results {
