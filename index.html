@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SuperFetch</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar" aria-labelledby="app-title">
+        <div>
+          <p class="eyebrow">SuperFetch</p>
+          <h1 id="app-title">Soccer Competitions</h1>
+        </div>
+        <button id="refresh-button" class="icon-button" type="button" title="Refresh competitions" aria-label="Refresh competitions">
+          &#8635;
+        </button>
+      </section>
+
+      <section class="control-panel" aria-label="Competition selector">
+        <label class="field">
+          <span>Competition</span>
+          <select id="competition-select" disabled>
+            <option>Loading competitions...</option>
+          </select>
+        </label>
+        <div id="status" class="status" role="status">Starting fetch...</div>
+      </section>
+
+      <section class="events-panel" aria-labelledby="events-title">
+        <div class="events-header">
+          <div>
+            <p class="eyebrow">Prematch</p>
+            <h2 id="events-title">Events</h2>
+          </div>
+          <div id="events-status" class="status" role="status">Choose a competition</div>
+        </div>
+        <label class="field event-field">
+          <span>Event</span>
+          <select id="event-select" disabled>
+            <option>Choose a competition first</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="markets-panel" aria-labelledby="markets-title">
+        <div class="events-header">
+          <div>
+            <p class="eyebrow">Odds</p>
+            <h2 id="markets-title">Markets</h2>
+          </div>
+          <div id="markets-status" class="status" role="status">Choose an event</div>
+        </div>
+        <label class="field event-field">
+          <span>Player</span>
+          <select id="player-select" disabled>
+            <option>Choose an event first</option>
+          </select>
+        </label>
+        <div class="csv-panel" aria-label="CSV output">
+          <div class="csv-actions">
+            <button id="generate-csv-button" class="secondary-button" type="button" disabled>Generate CSV</button>
+            <button id="add-to-csv-button" class="secondary-button" type="button" disabled>Add to CSV</button>
+            <button id="download-csv-button" class="secondary-button" type="button" disabled>Download CSV</button>
+            <div id="csv-status" class="status" role="status">Choose an event first</div>
+          </div>
+          <textarea id="csv-output" class="csv-output" spellcheck="false" placeholder="CSV output will appear here"></textarea>
+        </div>
+        <div id="markets-list" class="markets-list" aria-live="polite">
+          <div class="empty-state">Choose an event first</div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
