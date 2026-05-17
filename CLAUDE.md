@@ -4,60 +4,103 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the app
 
-The app uses ES modules and must be served over HTTP — opening `index.html` directly will not work.
+No build step, no package manager, no test suite. ES modules require HTTP — opening `index.html` directly fails.
 
 ```powershell
 python -m http.server 5177
 ```
 
-Then open `http://127.0.0.1:5177`. If the browser blocks Superbet requests with CORS errors, a local proxy is needed (the frontend calls `http://127.0.0.1` while the proxy forwards to the Superbet CDN).
+Open `http://127.0.0.1:5177`. CORS is only an issue on non-localhost origins; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
 
-There is no build step, no package manager, and no test suite.
+## Deployment
+
+`netlify.toml` sets `publish = "."` and rewrites `/sb-api/*` to the Superbet CDN. `js/config.js` detects `localhost`/`127.0.0.1` and uses the direct CDN URL locally; everywhere else it uses `/sb-api`.
 
 ## Architecture
 
-This is a vanilla JS single-page app with no framework or bundler. All modules are native ES modules loaded directly by the browser.
-
-### Module responsibilities
+Vanilla JS SPA, no framework, no bundler. All modules are native ES modules.
 
 | File | Role |
 |---|---|
-| `js/config.js` | API base URLs, locale (`sr-Latn-RS`), soccer sport ID, constants |
+| `js/config.js` | API base URLs, locale, sport ID — environment-aware |
 | `js/api.js` | All network calls and response normalization |
-| `js/ui.js` | DOM rendering, component creation, and UI-level state |
-| `js/csv.js` | CSV generation with Serbian market name mapping |
-| `js/main.js` | Orchestrator — wires DOM events, calls api.js, passes results to ui.js |
+| `js/ui.js` | DOM rendering, all UI state, component factories |
+| `js/csv.js` | CSV generation, market name mapping, row manipulation |
+| `js/main.js` | Orchestrator — wires events, owns CSV string state |
 
 ### Data flow
 
 1. **Load** → `fetchSoccerCompetitions()` → `renderCompetitionDropdown()`
 2. **Competition change** → `fetchPrematchEventsForCompetition(tournamentId)` → `renderEvents()`
-3. **Event change** → `fetchMarketsForEvent(event)` → `renderMarkets()`
-4. **Player filter change** → `renderMarketsForCurrentFilter()` re-renders from cached `currentMarkets`
-5. **Generate CSV** → `generateOddsCsv({ event, markets, player })` in `csv.js`
+3. **Event change** → `fetchMarketsForEvent(event)` → `renderMarkets()` → clears search + resets market tab display
+4. **Tab / search / filter change** → `renderMarketsForCurrentFilter()` re-renders from cached `currentMarkets`
+5. **CSV** — built entirely via individual "+" buttons; no bulk generate button
 
-### Key implementation details
+### Market tabs
 
-**Race conditions:** Two request ID counters (`eventsRequestId`, `marketsRequestId`) in `main.js` prevent stale responses from overwriting newer ones.
+Six tabs: **Sve, Obično, Statistika, Specijali, Dom. igrači, Gost. igrači** — controlled by `activeMarketTab` in `ui.js`.
 
-**Markets fetch fallback:** `fetchMarketsForEvent` tries the event endpoint without a `marketId` first; if that returns empty odds it retries with a seed `marketId` (from `event.odds[0].marketId ?? 547`), then falls back to the inline odds from the event object itself.
+- `filterMarketsByTab()` routes on `;` in market name (→ Specijali), `STATISTIKA_KEYWORDS` (→ Statistika), or `odd.playerTeam` (→ player tabs). Markets containing `"igrac"` in the normalized name are excluded from Statistika even if they match a keyword.
+- The Specijali and both player tabs share the same **odds range filter** (`#specijali-min` / `#specijali-max`); `specijalFilter` div visibility is toggled for all three.
+- A **market search** input (`#market-search`) filters by `marketName` for non-player tabs and by player name for player tabs. It clears on every new event load.
 
-**Market tabs:** Four tabs in the UI — All, Obično (standard), Statistika, Specijali — controlled by `activeMarketTab` state in `ui.js`. `filterMarketsByTab()` dispatches on the `;` separator (combo = Specijali) and then on `STATISTIKA_KEYWORDS` to split the remaining markets into Statistika vs Obično.
+### Custom event bus
 
-**Custom event bus:** `ui.js` communicates back to `main.js` by dispatching custom events on `document`. Four events are used: `add-odd-to-csv`, `remove-odd-from-csv`, `add-specijal-to-csv`, `remove-specijal-from-csv`. `main.js` owns all CSV state and listens for these.
+`ui.js` never imports `main.js`. Communication goes via `document.dispatchEvent`. Six events:
 
-**Player-prop vs Specijali CSV paths:** These are distinct flows. Player-prop odds (from the player filter card) fire `add-odd-to-csv` → `buildSingleOddCsvRow()`. Combo/accumulator odds (markets whose name contains `;`) fire `add-specijal-to-csv` → `buildSpecijaliBlock()` / `buildSpecijalRow()`, with a block header of `MATCH_NAME:Specijali` and `LEAGUE_NAME:<home> - <away>`. Removal of a specijali row also removes the orphaned `MATCH_NAME`/`LEAGUE_NAME` header pair if no data rows remain in that block (`removeSpecijalRowFromCsv()` in `csv.js`).
+| Event | Direction | Payload |
+|---|---|---|
+| `add-odd-to-csv` | ui → main | `{ marketName, odd, button }` |
+| `remove-odd-from-csv` | ui → main | `{ button }` |
+| `add-specijal-to-csv` | ui → main | `{ marketName, odd, button }` |
+| `remove-specijal-from-csv` | ui → main | `{ button }` |
+| `add-statistika-to-csv` | ui → main | `{ market, button }` |
+| `remove-statistika-from-csv` | ui → main | `{ button }` |
 
-**CSV market allow-list:** `mapOddToCsvMarket()` in `csv.js` is an explicit allow-list — only markets matching one of the `mkt.includes(…)` conditions produce a CSV row; everything else returns `null` and is silently skipped. Adding support for a new market type requires a new condition here **and** a sort-priority entry in `sortPlayerRows()`.
+`main.js` owns the CSV string and calls `renderCsvOutput()` after every change.
 
-**Answer column logic:** `extractLineOrNull()` converts threshold text in the odds name or `specialBetValue` (e.g., "više od 3.5" → `"4+"`, "2+" style strings) into the answer column value. When no threshold is found it defaults to `"DA"`.
+### Three CSV paths
 
-**CSV market mapping:** `mapOddToCsvMarket()` in `csv.js` translates Superbet market/outcome text into fixed Serbian market names. The CSV columns are fixed: `Datum, Vreme, Sifra, Domacin, Gost, 1, X, 2, GR, U, O, Yes, No`. When starting a fresh CSV via the "+" button, `MATCH_NAME:` (team) and `LEAGUE_NAME:` (player) header rows are prepended before the first data row.
+**Player props** (`add-odd-to-csv` → `buildSingleOddCsvRow()`):
+- CSV structure: `MATCH_NAME:<team>` once at top, `LEAGUE_NAME:<player>` per new player, data rows below.
+- Cross-team mixing is blocked with `alert()`. Same-team players just add a new `LEAGUE_NAME:` line.
+- Removal: `removePlayerOddFromCsv()` walks back to the owning `LEAGUE_NAME:`, removes it if the player block is empty, then removes `MATCH_NAME:` if no `LEAGUE_NAME:` lines remain.
+- Download filename: team name.
 
-**Player filter:** `extractPlayers()` in `ui.js` populates the player dropdown. Markets whose `marketName` contains `;` are skipped — these are multi-player combo/accumulator markets. The dropdown drives `renderMarketsForCurrentFilter()` which calls `groupOddsForPlayer()` to show only matching odds in a `player-results` card with individual "+" add-to-CSV buttons per odd row.
+**Specijali** (`add-specijal-to-csv` → `buildSpecijalRow()` / `buildSpecijaliBlock()`):
+- Block header: `MATCH_NAME:Specijal` / `LEAGUE_NAME:<home> - <away>`.
+- Removal: `removeSpecijalRowFromCsv()` strips orphaned header pair when block empties.
+- Download filename: full event name.
 
-**Player name format:** Names from Superbet often come as `"Lastname, Firstname"`. `formatPlayerName()` (defined in both `ui.js` and `csv.js`) converts them to `"Firstname Lastname"`. The player name regex in `extractPlayerCandidates()` allows one optional capitalized prefix word before the last name (e.g. `Van Dijk, Virgil`).
+**Statistika** (`add-statistika-to-csv` → `buildStatistikaMarketCsvRow()`):
+- One row per market; Under→col U (9), Over→col O (10), line→col GR (8).
+- Block header on first add: `MATCH_NAME:Specijal` / `LEAGUE_NAME:<event>`.
+- Download filename: full event name.
 
-**Text normalization:** `normalizeSearchText()` is duplicated in `ui.js` and `csv.js` (slight encoding difference for `đ`/`Đ` — raw chars vs escape sequences). Both strip diacritics and lowercase for fuzzy matching.
+**Empty-CSV rule:** after every remove, `clearCsvIfNoSelections()` checks for any remaining `.add-odd-button.is-added` — if none, CSV is cleared entirely regardless of orphaned headers.
 
-**CSV modes:** Three buttons control CSV output — "Generate CSV" replaces the textarea with all odds for the selected player/event; "Add to CSV" appends a `MATCH_NAME`/`LEAGUE_NAME` block for the selected player; individual "+" buttons on each odd row append single rows (prepending the full header block if the textarea was empty).
+### Margin control (Promeni kvote)
+
+`getMarginMultiplier()` in `ui.js` reads `#margin-pct` + `input[name="margin-dir"]` and returns a multiplier (e.g. 0.95 or 1.05). Applied at add-time to `odd.price`. Original (unadjusted) price is stored on `button.dataset.originalPrice` (or `originalPriceU`/`originalPriceO` for statistika). `applyMargin()` in `main.js` recalculates all checked rows from the originals whenever the inputs change (real-time). `refreshDisplayedPrices()` in `ui.js` updates the visible price spans at the same time.
+
+### Player cards
+
+`createPlayerGroupCardsByTeam(markets, team, search)` builds collapsible cards. Cards start collapsed; clicking the header button toggles `is-expanded` which CSS-transitions `max-height` on `.player-odds-list`. `resolvePlayerName(odd)` handles the case where `odd.playerName` is a raw API ID (contains `:`), falling back to extracting `"Lastname, Firstname"` from `odd.name`.
+
+### CSV market allow-list
+
+`mapOddToCsvMarket()` in `csv.js` is an explicit allow-list. Returning `null` silently skips the market. Adding a new player-prop market type requires a new `mkt.includes(…)` condition here **and** a priority entry in `sortPlayerRows()`.
+
+`toAsciiMarketName()` is applied to all market names going into the CSV — strips diacritics via NFD + combining-mark removal, maps `đ→d`. This avoids charset rendering bugs in the CSV output.
+
+### Encoding note
+
+`csv.js` has a historical encoding artifact in `normalizeSearchText` — the `đ`/`Đ` replace patterns are stored as garbled bytes rather than `\uXXXX` escapes. This affects search normalization only and does not affect CSV output. **Never add literal Serbian characters (š, ž, č, ć, đ) to hardcoded output strings in `csv.js`** — use ASCII equivalents or `\uXXXX` escapes.
+
+### Other UI details
+
+- **Sidebar CSV preview** (`#csv-preview-panel`): synced by `renderCsvOutput()`; hidden when CSV is empty.
+- **Kickoff time** (`#datetime-display`): set by `setKickoffTime(event)` whenever a new event loads; cleared on reset. Uses `Europe/Belgrade` timezone.
+- **Race conditions:** `eventsRequestId` / `marketsRequestId` counters in `main.js` discard stale responses.
+- **Markets fetch fallback:** tries event endpoint without `marketId`; retries with seed `marketId` (`event.odds[0].marketId ?? 547`); falls back to inline odds.
+- **`normalizeSearchText()`** is duplicated in `ui.js` and `csv.js` with slightly different `đ` handling. Both strip diacritics and lowercase for fuzzy matching.

@@ -1,8 +1,8 @@
-# SuperFetch
+# SPECIJALI
 
-Browser-based tool for fetching Superbet soccer odds and exporting them as CSV files.
+Browser-based CSV generator for Superbet soccer odds.
 
-## Run
+## Run locally
 
 Because the app uses ES modules, serve the folder with a local static server:
 
@@ -12,15 +12,34 @@ python -m http.server 5177
 
 Then open `http://127.0.0.1:5177`.
 
-If the browser blocks Superbet requests with CORS errors, run a local proxy that accepts calls on `http://127.0.0.1` and forwards them to the Superbet CDN.
+## Deploy
+
+Push to GitHub and connect to Netlify. `netlify.toml` is already configured — it sets the publish directory to the repo root and proxies all API calls through `/sb-api` to solve CORS. No build step needed.
 
 ## Usage
 
 1. **Competition** — select a league from the dropdown; events load automatically.
-2. **Event** — pick a match; markets load and the player dropdown is populated.
-3. **Player** — filter the markets view to a single player's odds. Multi-player combo markets (names joined with `;`) are excluded automatically.
-4. **CSV export** — three options:
-   - **Generate CSV** — builds a full CSV for the selected player (or all players if none selected) and fills the text area.
-   - **Add to CSV** — appends a block for the selected player to whatever is already in the text area.
-   - **+** buttons — add individual odds one at a time; the first click on an empty text area also writes the column header and `MATCH_NAME`/`LEAGUE_NAME` rows.
-   - **Download CSV** — saves the text area contents as a `.csv` file.
+2. **Event** — pick a match; markets and player tabs load automatically.
+3. **Tabs** — switch between market categories:
+   - **Sve** — all markets
+   - **Obično** — standard match markets
+   - **Statistika** — team-level stats (corners, fouls, shots…); one "+" button per market adds an Under/Over row
+   - **Specijali** — combo/accumulator markets; one "+" button per odd
+   - **Dom. igrači / Gost. igrači** — player props grouped by player in collapsible cards
+4. **Search** — filter visible markets or players by name within the active tab.
+5. **Odds range filter** — available on Specijali and both player tabs; hides odds outside the od/do range.
+6. **Promeni kvote** — apply a percentage decrease or increase to all odds before they enter the CSV; changes are reflected in real time on the odds buttons and in the CSV preview.
+7. **+ buttons** — add individual odds to the CSV. Click again to remove. The CSV clears automatically when all selections are unchecked.
+8. **Primeni** — re-applies the current margin to all already-added rows.
+9. **Download** — saves the CSV. Filename is the team name for player props, or the full event name for Specijali/Statistika.
+
+## CSV structure
+
+```
+Datum,Vreme,Sifra,Domacin,Gost,1,X,2,GR,U,O,Yes,No
+MATCH_NAME:<team or event>
+LEAGUE_NAME:<player or event>
+<data rows...>
+```
+
+Player-prop files group rows by team (`MATCH_NAME`) and player (`LEAGUE_NAME`). Mixing players from different teams in one CSV is blocked. Specijali and Statistika files use `MATCH_NAME:Specijal` with the event name as `LEAGUE_NAME`.
