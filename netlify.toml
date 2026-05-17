@@ -1,0 +1,8 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/sb-api/*"
+  to = "https://production-superbet-offer-rs.freetls.fastly.net/sb-rs/api/v2/:splat"
+  status = 200
+  force = true
