@@ -1,7 +1,6 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename } from "./csv.js";
 import {
-  getCurrentMarkets,
   getSelectedCompetition,
   getSelectedEvent,
   getElements,
@@ -22,7 +21,7 @@ import {
   setLoading
 } from "./ui.js";
 
-const { select, eventSelect, refreshButton, generateCsvButton, addToCsvButton, downloadCsvButton } = getElements();
+const { select, eventSelect, refreshButton, downloadCsvButton } = getElements();
 let eventsRequestId = 0;
 let marketsRequestId = 0;
 
@@ -98,8 +97,6 @@ async function loadMarketsForSelectedEvent() {
 select.addEventListener("change", loadEventsForSelectedCompetition);
 eventSelect.addEventListener("change", loadMarketsForSelectedEvent);
 refreshButton.addEventListener("click", loadCompetitions);
-generateCsvButton.addEventListener("click", generateCsv);
-addToCsvButton.addEventListener("click", addToCurrentCsv);
 downloadCsvButton.addEventListener("click", downloadCsv);
 
 document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button } }) => {
@@ -128,14 +125,20 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
     lines.push(row);
     newCsv = lines.join("\r\n");
   } else {
-    const lastLeague = existing.split(/\r?\n/).filter((l) => l.startsWith("LEAGUE_NAME:")).pop();
+    const csvLines = existing.split(/\r?\n/);
+    const firstMatch = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
+    const csvTeam = firstMatch ? firstMatch.slice("MATCH_NAME:".length) : "";
+
+    if (teamName && csvTeam && teamName !== csvTeam) {
+      alert(`Cannot mix players from different teams.\nCSV contains: "${csvTeam}"\nSelected player: "${teamName}"`);
+      return;
+    }
+
+    const lastLeague = csvLines.filter((l) => l.startsWith("LEAGUE_NAME:")).pop();
     const lastPlayer = lastLeague ? lastLeague.slice("LEAGUE_NAME:".length) : "";
+
     if (playerName && playerName !== lastPlayer) {
-      const blockLines = [];
-      if (teamName) blockLines.push(`MATCH_NAME:${teamName}`);
-      blockLines.push(`LEAGUE_NAME:${playerName}`);
-      blockLines.push(row);
-      newCsv = `${existing}\r\n${blockLines.join("\r\n")}`;
+      newCsv = `${existing}\r\nLEAGUE_NAME:${playerName}\r\n${row}`;
     } else {
       newCsv = `${existing}\r\n${row}`;
     }
@@ -249,23 +252,6 @@ document.addEventListener("remove-statistika-from-csv", ({ detail: { button } })
 loadCompetitions();
 initMarketTabs();
 
-function addToCurrentCsv() {
-  // no-op: player selection removed; individual "+" buttons handle CSV appending
-}
-
-function generateCsv() {
-  const event = getSelectedEvent();
-  const markets = getCurrentMarkets();
-
-  if (!event || !markets.length) {
-    renderCsvOutput("", "", 0);
-    return;
-  }
-
-  const csv = generateOddsCsv({ event, markets, player: null });
-  const filename = makeCsvFilename(event, null);
-  renderCsvOutput(csv, filename, countCsvRows(csv));
-}
 
 function downloadCsv() {
   const csv = getCsvOutput();

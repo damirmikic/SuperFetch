@@ -54,6 +54,18 @@
               <option>Choose a competition first</option>
             </select>
           </label>
+
+          <div class="csv-preview-panel" id="csv-preview-panel" hidden>
+            <hr class="csv-preview-divider">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">Output</span>
+                <h3 class="panel-title">CSV Preview</h3>
+              </div>
+              <span id="csv-preview-status" class="status-pill"></span>
+            </div>
+            <pre class="csv-preview-content" id="csv-preview-content"></pre>
+          </div>
         </aside>
 
         <!-- Right column: markets + CSV -->
@@ -82,12 +94,6 @@
           <!-- CSV toolbar -->
           <div class="csv-panel" aria-label="CSV output">
             <div class="csv-actions">
-              <button id="generate-csv-button" class="action-btn" type="button" disabled>
-                <span class="btn-icon">⬇</span> Generate CSV
-              </button>
-              <button id="add-to-csv-button" class="action-btn" type="button" disabled>
-                <span class="btn-icon">＋</span> Add Player
-              </button>
               <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled>
                 <span class="btn-icon">⤓</span> Download
               </button>

@@ -1,10 +1,11 @@
 const elements = {
   select: document.querySelector("#competition-select"),
   eventSelect: document.querySelector("#event-select"),
-  generateCsvButton: document.querySelector("#generate-csv-button"),
-  addToCsvButton: document.querySelector("#add-to-csv-button"),
   downloadCsvButton: document.querySelector("#download-csv-button"),
   csvOutput: document.querySelector("#csv-output"),
+  csvPreviewPanel: document.querySelector("#csv-preview-panel"),
+  csvPreviewContent: document.querySelector("#csv-preview-content"),
+  csvPreviewStatus: document.querySelector("#csv-preview-status"),
   marketsList: document.querySelector("#markets-list"),
   status: document.querySelector("#status"),
   refreshButton: document.querySelector("#refresh-button"),
@@ -175,8 +176,7 @@ export function renderMarkets(markets) {
 
   document.querySelector('[data-tab="home-players"]').textContent = currentEvent?.homeTeam || "Dom. igrači";
   document.querySelector('[data-tab="away-players"]').textContent = currentEvent?.awayTeam || "Gost. igrači";
-  elements.generateCsvButton.disabled = false;
-  elements.csvStatus.textContent = "Ready to generate CSV";
+  elements.csvStatus.textContent = "Use + buttons to add markets";
   renderMarketsForCurrentFilter();
 }
 
@@ -185,6 +185,9 @@ export function renderCsvOutput(csv, filename, rowCount) {
   elements.downloadCsvButton.disabled = !csv;
   elements.downloadCsvButton.dataset.filename = filename;
   elements.csvStatus.textContent = csv ? `${rowCount} CSV rows generated` : "No CSV rows generated";
+  elements.csvPreviewPanel.hidden = !csv;
+  elements.csvPreviewContent.textContent = csv;
+  elements.csvPreviewStatus.textContent = csv ? `${rowCount} rows` : "";
 }
 
 export function getCsvOutput() {
@@ -302,12 +305,12 @@ export function initMarketTabs() {
 
 
 function resetCsvOutput(label) {
-  elements.generateCsvButton.disabled = true;
-  elements.addToCsvButton.disabled = true;
   elements.downloadCsvButton.disabled = true;
   elements.downloadCsvButton.dataset.filename = "";
   elements.csvOutput.value = "";
   elements.csvStatus.textContent = label;
+  elements.csvPreviewPanel.hidden = true;
+  elements.csvPreviewContent.textContent = "";
 }
 
 function extractPlayers(markets) {

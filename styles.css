@@ -175,7 +175,40 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   padding: 22px 20px;
+}
+
+.markets-panel {
   overflow: hidden;
+}
+
+.sidebar {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+/* ─── Sidebar CSV preview ─── */
+.csv-preview-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 20px 0;
+}
+
+.csv-preview-content {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--accent);
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 320px;
 }
 
 /* ─── Panel heading area ─── */

@@ -109,8 +109,9 @@ export function countCsvRows(csv) {
 }
 
 /**
- * Remove a player-prop data row and clean up orphaned MATCH_NAME/LEAGUE_NAME
- * header lines if no data rows remain in that player's block.
+ * Remove a player-prop data row. Cleans up the owning LEAGUE_NAME: line when
+ * that player's block becomes empty, and removes the single MATCH_NAME: header
+ * only when no LEAGUE_NAME lines remain at all.
  */
 export function removePlayerOddFromCsv(csv, rowToRemove) {
   if (!rowToRemove || !csv) return csv;
@@ -121,22 +122,32 @@ export function removePlayerOddFromCsv(csv, rowToRemove) {
 
   lines.splice(idx, 1);
 
-  // Walk back to find the owning MATCH_NAME: header
-  let matchStart = -1;
+  // Walk back to find the owning LEAGUE_NAME: header
+  let leagueStart = -1;
   for (let i = Math.min(idx - 1, lines.length - 1); i >= 0; i--) {
-    if (lines[i].startsWith("MATCH_NAME:")) { matchStart = i; break; }
+    if (lines[i].startsWith("LEAGUE_NAME:")) { leagueStart = i; break; }
+    if (lines[i].startsWith("MATCH_NAME:")) break;
   }
 
-  if (matchStart !== -1) {
+  if (leagueStart !== -1) {
+    // Player block ends at next LEAGUE_NAME/MATCH_NAME or EOF
     let blockEnd = lines.length;
-    for (let i = matchStart + 1; i < lines.length; i++) {
-      if (lines[i].startsWith("MATCH_NAME:")) { blockEnd = i; break; }
+    for (let i = leagueStart + 1; i < lines.length; i++) {
+      if (lines[i].startsWith("LEAGUE_NAME:") || lines[i].startsWith("MATCH_NAME:")) {
+        blockEnd = i;
+        break;
+      }
     }
 
-    // Data rows = everything in the block after the two header lines
-    const dataRows = lines.slice(matchStart + 2, blockEnd).filter((l) => l.trim());
+    const dataRows = lines.slice(leagueStart + 1, blockEnd).filter((l) => l.trim());
     if (dataRows.length === 0) {
-      lines.splice(matchStart, 2);
+      lines.splice(leagueStart, 1);
+
+      // If no LEAGUE_NAME lines remain, remove the MATCH_NAME header too
+      if (!lines.some((l) => l.startsWith("LEAGUE_NAME:"))) {
+        const matchIdx = lines.findIndex((l) => l.startsWith("MATCH_NAME:"));
+        if (matchIdx !== -1) lines.splice(matchIdx, 1);
+      }
     }
   }
 
@@ -271,11 +282,12 @@ function mapOddToCsvMarket(market, odd) {
   if (mkt.includes("postize")) return { market: name, answer };
   if (mkt.includes("crveni") && mkt.includes("karton")) return { market: name, answer };
   if (mkt.includes("karton")) return { market: name, answer };
-  if (mkt.includes("gol i asistir")) return { market: name, answer };
-  if (mkt.includes("gol ili asistir")) return { market: name, answer };
+  if (mkt.includes("gol") && mkt.includes("ili") && mkt.includes("asistir")) return { market: "gol ili asistencija", answer: "DA" };
+  if (mkt.includes("gol") && mkt.includes("asistir")) return { market: "gol i asistencija", answer: "DA" };
   if (mkt.includes("asistencij")) return { market: name, answer };
   if (mkt.includes("ukupan") && mkt.includes("sutev") && mkt.includes("okvir")) return { market: name, answer };
   if (mkt.includes("ukupno") && mkt.includes("sutev")) return { market: name, answer };
+  if (mkt.includes("faul") && mkt.includes("nad") && mkt.includes("igrac")) return { market: "uk. faulova nad igračem", answer };
   if (mkt.includes("faul") && mkt.includes("nad")) return { market: name, answer };
   if (mkt.includes("faul")) return { market: name, answer };
   if (mkt.includes("ofsajd")) return { market: name, answer };
