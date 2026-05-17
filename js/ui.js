@@ -356,7 +356,7 @@ export function initMarketTabs() {
         t.setAttribute("aria-selected", String(active));
       }
 
-      elements.specijalFilter.hidden = activeMarketTab !== "specijali";
+      elements.specijalFilter.hidden = !["specijali", "home-players", "away-players"].includes(activeMarketTab);
       renderMarketsForCurrentFilter();
     });
   }
@@ -493,10 +493,16 @@ function resolvePlayerName(odd) {
 function createPlayerGroupCardsByTeam(markets, team, search = "") {
   const playerMap = new Map();
   const searchNorm = normalizeSearchText(search);
+  const minPrice = parseFloat(elements.specijalMin.value);
+  const maxPrice = parseFloat(elements.specijalMax.value);
 
   for (const market of markets) {
     for (const odd of market.odds) {
       if (!odd.playerName || odd.playerTeam !== team) continue;
+      if (Number.isFinite(odd.price)) {
+        if (!Number.isNaN(minPrice) && odd.price < minPrice) continue;
+        if (!Number.isNaN(maxPrice) && odd.price > maxPrice) continue;
+      }
       const playerName = resolvePlayerName(odd);
       if (!playerName) continue;
       const norm = normalizeSearchText(playerName);
