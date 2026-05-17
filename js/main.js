@@ -6,6 +6,7 @@ import {
   getElements,
   getCsvOutput,
   getMarginMultiplier,
+  refreshDisplayedPrices,
   initMarketTabs,
   renderMarkets,
   renderMarketsForCurrentFilter,
@@ -312,13 +313,14 @@ function applyMargin() {
     btn.dataset.csvRow = newRow;
   }
 
+  refreshDisplayedPrices();
   const event = getSelectedEvent();
   renderCsvOutput(csv, makeCsvFilename(event, null), countCsvRows(csv));
 }
 
 document.querySelector("#margin-apply").addEventListener("click", applyMargin);
-document.querySelector("#margin-pct").addEventListener("input", applyMargin);
-document.querySelectorAll('input[name="margin-dir"]').forEach((r) => r.addEventListener("change", applyMargin));
+document.querySelector("#margin-pct").addEventListener("input", () => { applyMargin(); refreshDisplayedPrices(); });
+document.querySelectorAll('input[name="margin-dir"]').forEach((r) => r.addEventListener("change", () => { applyMargin(); refreshDisplayedPrices(); }));
 
 loadCompetitions();
 initMarketTabs();
