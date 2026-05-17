@@ -374,6 +374,85 @@ select:disabled {
   font-size: 13px;
 }
 
+/* ─── Margin / odds adjustment control ─── */
+.margin-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.margin-radio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.margin-radio input[type="radio"] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.margin-pct-input {
+  width: 72px;
+  padding: 5px 8px;
+  background: var(--surface-3);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: right;
+}
+
+.margin-pct-input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.margin-pct-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ─── Market search ─── */
+.market-search-wrap {
+  margin-top: 12px;
+}
+
+.market-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.market-search-input:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.market-search-input::placeholder {
+  color: var(--text-3);
+}
+
 /* ═══════════════════════════════════════
    MARKET TABS
 ═══════════════════════════════════════ */
@@ -485,6 +564,17 @@ select:disabled {
 .btn-icon {
   font-size: 14px;
   line-height: 1;
+}
+
+.action-btn--secondary {
+  border-color: var(--line-bright);
+  color: var(--text-2);
+}
+
+.action-btn--secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
 }
 
 .action-btn:focus-visible,

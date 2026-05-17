@@ -95,6 +95,11 @@
             <button class="market-tab"           role="tab" aria-selected="false" data-tab="away-players" id="tab-away-players" aria-controls="markets-list">Gost. igrači</button>
           </div>
 
+          <!-- Market search -->
+          <div class="market-search-wrap">
+            <input id="market-search" type="search" class="market-search-input" placeholder="Pretraži markete…" autocomplete="off">
+          </div>
+
           <!-- Specijali odds filter -->
           <div class="specijali-filter" id="specijali-filter" hidden>
             <span class="field-label">Kvota</span>
@@ -106,6 +111,19 @@
 
           <!-- CSV toolbar -->
           <div class="csv-panel" aria-label="CSV output">
+            <div class="margin-control">
+              <span class="field-label">Promeni kvote</span>
+              <label class="margin-radio">
+                <input type="radio" name="margin-dir" id="margin-decrease" value="decrease" checked>
+                <span>Smanji za</span>
+              </label>
+              <label class="margin-radio">
+                <input type="radio" name="margin-dir" id="margin-increase" value="increase">
+                <span>Povećaj za</span>
+              </label>
+              <input id="margin-pct" class="margin-pct-input" type="number" min="0" max="99" step="0.1" placeholder="%">
+              <button id="margin-apply" class="action-btn action-btn--secondary" type="button">Primeni</button>
+            </div>
             <div class="csv-actions">
               <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled>
                 <span class="btn-icon">⤓</span> Download

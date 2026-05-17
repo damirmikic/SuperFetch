@@ -38,6 +38,7 @@ let currentMarkets = [];
 let currentEvent = null;
 /** @type {"all"|"standard"|"statistika"|"specijali"|"home-players"|"away-players"} */
 let activeMarketTab = "all";
+let marketSearch = "";
 
 export function getElements() {
   return elements;
@@ -183,6 +184,8 @@ export function resetMarkets() {
 
 export function renderMarkets(markets) {
   currentMarkets = markets;
+  marketSearch = "";
+  document.querySelector("#market-search").value = "";
   elements.marketsStatus.classList.remove("is-error");
   elements.marketsStatus.textContent = markets.length
     ? `${markets.length} markets loaded`
@@ -214,6 +217,13 @@ export function getCsvOutput() {
   return elements.csvOutput.value;
 }
 
+export function getMarginMultiplier() {
+  const pct = parseFloat(document.querySelector("#margin-pct").value);
+  if (!Number.isFinite(pct) || pct <= 0) return 1;
+  const direction = document.querySelector('input[name="margin-dir"]:checked').value;
+  return direction === "decrease" ? 1 - pct / 100 : 1 + pct / 100;
+}
+
 export function renderMarketsForCurrentFilter() {
   if (!currentMarkets.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
@@ -224,7 +234,7 @@ export function renderMarketsForCurrentFilter() {
 
   if (activeMarketTab === "home-players" || activeMarketTab === "away-players") {
     const side = activeMarketTab === "home-players" ? "home" : "away";
-    const cards = createPlayerGroupCardsByTeam(tabFiltered, side);
+    const cards = createPlayerGroupCardsByTeam(tabFiltered, side, marketSearch);
     if (!cards.length) {
       elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
       return;
@@ -233,12 +243,17 @@ export function renderMarketsForCurrentFilter() {
     return;
   }
 
-  if (!tabFiltered.length) {
+  const searchNorm = normalizeSearchText(marketSearch);
+  const visible = searchNorm
+    ? tabFiltered.filter((m) => normalizeSearchText(m.marketName).includes(searchNorm))
+    : tabFiltered;
+
+  if (!visible.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
     return;
   }
 
-  elements.marketsList.replaceChildren(...tabFiltered.map(createMarketCard));
+  elements.marketsList.replaceChildren(...visible.map(createMarketCard));
 }
 
 /**
@@ -339,6 +354,12 @@ export function initMarketTabs() {
   elements.specijalFilterClear.addEventListener("click", () => {
     elements.specijalMin.value = "";
     elements.specijalMax.value = "";
+    renderMarketsForCurrentFilter();
+  });
+
+  const searchInput = document.querySelector("#market-search");
+  searchInput.addEventListener("input", () => {
+    marketSearch = searchInput.value.trim();
     renderMarketsForCurrentFilter();
   });
 }
@@ -457,8 +478,9 @@ function resolvePlayerName(odd) {
   return m ? `${m[1]}, ${m[2]}` : null;
 }
 
-function createPlayerGroupCardsByTeam(markets, team) {
+function createPlayerGroupCardsByTeam(markets, team, search = "") {
   const playerMap = new Map();
+  const searchNorm = normalizeSearchText(search);
 
   for (const market of markets) {
     for (const odd of market.odds) {
@@ -474,6 +496,7 @@ function createPlayerGroupCardsByTeam(markets, team) {
   }
 
   return Array.from(playerMap.values())
+    .filter(({ name }) => !searchNorm || normalizeSearchText(formatPlayerName(name)).includes(searchNorm))
     .sort((a, b) => formatPlayerName(a.name).localeCompare(formatPlayerName(b.name)))
     .map(({ name, matches }) => createPlayerGroupCard(formatPlayerName(name), matches));
 }

@@ -5,6 +5,7 @@ import {
   getSelectedEvent,
   getElements,
   getCsvOutput,
+  getMarginMultiplier,
   initMarketTabs,
   renderMarkets,
   renderMarketsForCurrentFilter,
@@ -103,7 +104,9 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   const event = getSelectedEvent();
   if (!event) return;
 
-  const row = buildSingleOddCsvRow({ event, marketName, odd });
+  const m = getMarginMultiplier();
+  const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
+  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -152,6 +155,7 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
 
   renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
   button.dataset.csvRow = row;
+  button.dataset.originalPrice = odd.price;
   button.textContent = "✓";
   button.title = "Remove from CSV";
   button.classList.add("is-added");
@@ -165,21 +169,24 @@ document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
   const existing = getCsvOutput();
   const newCsv = removePlayerOddFromCsv(existing, rowToRemove);
 
-  const event = getSelectedEvent();
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
-
   delete button.dataset.csvRow;
   button.textContent = "+";
   button.title = "Add to CSV";
   button.classList.remove("is-added");
+
+  const event = getSelectedEvent();
+  if (clearCsvIfNoSelections(event)) return;
+  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
 });
 
 document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button } }) => {
   const event = getSelectedEvent();
   if (!event) return;
 
+  const m = getMarginMultiplier();
+  const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
   // Always compute the plain data row — we store it for later removal
-  const row = buildSpecijalRow({ event, marketName, odd });
+  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -188,7 +195,7 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   if (existing) {
     newCsv = `${existing}\r\n${row}`;
   } else {
-    const block = buildSpecijaliBlock({ event, marketName, odd });
+    const block = buildSpecijaliBlock({ event, marketName, odd: adjustedOdd });
     if (!block) return;
     newCsv = `${CSV_COLUMNS.join(",")}\r\n${block}`;
   }
@@ -196,6 +203,7 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
   // Store the exact row string so the remove handler can find it
   button.dataset.csvRow = row;
+  button.dataset.originalPrice = odd.price;
   button.textContent = "✓";
   button.title = "Remove from CSV";
   button.classList.add("is-added");
@@ -209,20 +217,25 @@ document.addEventListener("remove-specijal-from-csv", ({ detail: { button } }) =
   const existing = getCsvOutput();
   const newCsv = removeSpecijalRowFromCsv(existing, rowToRemove);
 
-  const event = getSelectedEvent();
-  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
-
   delete button.dataset.csvRow;
   button.textContent = "+";
   button.title = "Add to CSV as Specijali";
   button.classList.remove("is-added");
+
+  const event = getSelectedEvent();
+  if (clearCsvIfNoSelections(event)) return;
+  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
 });
 
 document.addEventListener("add-statistika-to-csv", ({ detail: { market, button } }) => {
   const event = getSelectedEvent();
   if (!event) return;
 
-  const row = buildStatistikaMarketCsvRow({ event, market });
+  const m = getMarginMultiplier();
+  const adjustedMarket = m !== 1
+    ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
+    : market;
+  const row = buildStatistikaMarketCsvRow({ event, market: adjustedMarket });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -233,6 +246,12 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
 
   renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
   button.dataset.csvRow = row;
+  // Store original U/O prices for Primeni recalculation
+  for (const o of market.odds) {
+    const n = String(o.name).toLowerCase();
+    if (n.includes("manje") || n.includes("under")) button.dataset.originalPriceU = o.price;
+    else if (n.includes("vise") || n.includes("over")) button.dataset.originalPriceO = o.price;
+  }
   button.textContent = "✓";
   button.title = "Remove from CSV";
   button.classList.add("is-added");
@@ -245,15 +264,61 @@ document.addEventListener("remove-statistika-from-csv", ({ detail: { button } })
   const existing = getCsvOutput();
   const newCsv = removeCsvRow(existing, rowToRemove);
 
-  const event = getSelectedEvent();
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
-
   delete button.dataset.csvRow;
   button.textContent = "+";
   button.title = "Add to CSV";
   button.classList.remove("is-added");
+
+  const event = getSelectedEvent();
+  if (clearCsvIfNoSelections(event)) return;
+  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
 });
 
+
+function clearCsvIfNoSelections(event) {
+  const hasAny = document.querySelector(".add-odd-button.is-added");
+  if (!hasAny) {
+    renderCsvOutput("", makeCsvFilename(event, null), 0);
+    return true;
+  }
+  return false;
+}
+
+function applyMargin() {
+  const multiplier = getMarginMultiplier();
+  let csv = getCsvOutput();
+  if (!csv) return;
+
+  for (const btn of document.querySelectorAll(".add-odd-button.is-added[data-original-price]")) {
+    const originalPrice = parseFloat(btn.dataset.originalPrice);
+    if (!Number.isFinite(originalPrice)) continue;
+    const oldRow = btn.dataset.csvRow;
+    const cols = oldRow.split(",");
+    cols[5] = (originalPrice * multiplier).toFixed(2);
+    const newRow = cols.join(",");
+    csv = csv.replace(oldRow, newRow);
+    btn.dataset.csvRow = newRow;
+  }
+
+  for (const btn of document.querySelectorAll(".add-odd-button.is-added[data-original-price-u], .add-odd-button.is-added[data-original-price-o]")) {
+    const oldRow = btn.dataset.csvRow;
+    const cols = oldRow.split(",");
+    const priceU = parseFloat(btn.dataset.originalPriceU);
+    const priceO = parseFloat(btn.dataset.originalPriceO);
+    if (Number.isFinite(priceU)) cols[9]  = (priceU * multiplier).toFixed(2);
+    if (Number.isFinite(priceO)) cols[10] = (priceO * multiplier).toFixed(2);
+    const newRow = cols.join(",");
+    csv = csv.replace(oldRow, newRow);
+    btn.dataset.csvRow = newRow;
+  }
+
+  const event = getSelectedEvent();
+  renderCsvOutput(csv, makeCsvFilename(event, null), countCsvRows(csv));
+}
+
+document.querySelector("#margin-apply").addEventListener("click", applyMargin);
+document.querySelector("#margin-pct").addEventListener("input", applyMargin);
+document.querySelectorAll('input[name="margin-dir"]').forEach((r) => r.addEventListener("change", applyMargin));
 
 loadCompetitions();
 initMarketTabs();
