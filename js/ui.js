@@ -1,3 +1,16 @@
+const datetimeDisplay = document.querySelector("#datetime-display");
+const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
+  timeZone: "Europe/Belgrade",
+  day: "2-digit", month: "2-digit", year: "numeric",
+  hour: "2-digit", minute: "2-digit",
+  hour12: false
+});
+function setKickoffTime(event) {
+  if (!event?.matchDate) { datetimeDisplay.textContent = ""; return; }
+  const date = new Date(event.matchDate.replace(" ", "T") + "Z");
+  datetimeDisplay.textContent = Number.isNaN(date.getTime()) ? "" : datetimeFmt.format(date);
+}
+
 const elements = {
   select: document.querySelector("#competition-select"),
   eventSelect: document.querySelector("#event-select"),
@@ -143,6 +156,7 @@ export function setMarketsLoading(event) {
   elements.marketsStatus.textContent = `Loading markets for ${formatMatchName(event)}...`;
   currentMarkets = [];
   currentEvent = event;
+  setKickoffTime(event);
   resetCsvOutput("Loading markets...");
   elements.marketsList.replaceChildren(createEmptyState("Loading markets...", "⏳"));
 }
@@ -151,6 +165,7 @@ export function setMarketsError(error) {
   elements.marketsStatus.classList.add("is-error");
   elements.marketsStatus.textContent = error.message;
   currentMarkets = [];
+  setKickoffTime(null);
   resetCsvOutput("Unable to generate CSV");
   elements.marketsList.replaceChildren(createEmptyState("Unable to load markets.", "⚠️"));
 }
@@ -160,6 +175,7 @@ export function resetMarkets() {
   elements.marketsStatus.textContent = "Choose an event";
   currentMarkets = [];
   currentEvent = null;
+  setKickoffTime(null);
   resetCsvOutput("Choose an event first");
   elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
 }
