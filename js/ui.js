@@ -1,7 +1,6 @@
 const elements = {
   select: document.querySelector("#competition-select"),
   eventSelect: document.querySelector("#event-select"),
-  playerSelect: document.querySelector("#player-select"),
   generateCsvButton: document.querySelector("#generate-csv-button"),
   addToCsvButton: document.querySelector("#add-to-csv-button"),
   downloadCsvButton: document.querySelector("#download-csv-button"),
@@ -19,7 +18,7 @@ let optionIndex = new Map();
 let eventIndex = new Map();
 let currentMarkets = [];
 let currentEvent = null;
-/** @type {"all"|"standard"|"specijali"} */
+/** @type {"all"|"standard"|"statistika"|"specijali"|"home-players"|"away-players"} */
 let activeMarketTab = "all";
 
 export function getElements() {
@@ -84,17 +83,12 @@ export function getCurrentMarkets() {
   return currentMarkets;
 }
 
-export function getSelectedPlayer() {
-  return elements.playerSelect.value;
-}
-
 export function setEventsLoading(competition) {
   elements.eventsStatus.classList.remove("is-error");
   elements.eventsStatus.textContent = `Loading events for ${competition.tournamentName}...`;
   eventIndex = new Map();
   elements.eventSelect.disabled = true;
   elements.eventSelect.replaceChildren(new Option("Loading events...", ""));
-  resetPlayers();
 }
 
 export function setEventsError(error) {
@@ -103,7 +97,6 @@ export function setEventsError(error) {
   eventIndex = new Map();
   elements.eventSelect.disabled = true;
   elements.eventSelect.replaceChildren(new Option("Unable to load events", ""));
-  resetPlayers();
 }
 
 export function resetEvents() {
@@ -112,7 +105,6 @@ export function resetEvents() {
   eventIndex = new Map();
   elements.eventSelect.disabled = true;
   elements.eventSelect.replaceChildren(new Option("Choose a competition first", ""));
-  resetPlayers();
 }
 
 export function renderEvents(events) {
@@ -147,7 +139,6 @@ export function setMarketsLoading(event) {
   currentMarkets = [];
   currentEvent = event;
   resetCsvOutput("Loading markets...");
-  resetPlayers("Loading players...");
   elements.marketsList.replaceChildren(createEmptyState("Loading markets...", "⏳"));
 }
 
@@ -156,7 +147,6 @@ export function setMarketsError(error) {
   elements.marketsStatus.textContent = error.message;
   currentMarkets = [];
   resetCsvOutput("Unable to generate CSV");
-  resetPlayers("Unable to load players");
   elements.marketsList.replaceChildren(createEmptyState("Unable to load markets.", "⚠️"));
 }
 
@@ -166,7 +156,6 @@ export function resetMarkets() {
   currentMarkets = [];
   currentEvent = null;
   resetCsvOutput("Choose an event first");
-  resetPlayers();
   elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
 }
 
@@ -180,12 +169,12 @@ export function renderMarkets(markets) {
 
   if (!markets.length) {
     resetCsvOutput("No markets for CSV");
-    resetPlayers("No players detected");
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
     return;
   }
 
-  renderPlayersDropdown(markets);
+  document.querySelector('[data-tab="home-players"]').textContent = currentEvent?.homeTeam || "Dom. igrači";
+  document.querySelector('[data-tab="away-players"]').textContent = currentEvent?.awayTeam || "Gost. igrači";
   elements.generateCsvButton.disabled = false;
   elements.csvStatus.textContent = "Ready to generate CSV";
   renderMarketsForCurrentFilter();
@@ -203,34 +192,30 @@ export function getCsvOutput() {
 }
 
 export function renderMarketsForCurrentFilter() {
-  const query = elements.playerSelect.value;
-  elements.addToCsvButton.disabled = !query;
-
   if (!currentMarkets.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
     return;
   }
 
-  // Apply active tab filter
   const tabFiltered = filterMarketsByTab(currentMarkets, activeMarketTab);
 
-  if (!query) {
-    if (!tabFiltered.length) {
-      elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
+  if (activeMarketTab === "home-players" || activeMarketTab === "away-players") {
+    const side = activeMarketTab === "home-players" ? "home" : "away";
+    const cards = createPlayerGroupCardsByTeam(tabFiltered, side);
+    if (!cards.length) {
+      elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
       return;
     }
-    elements.marketsList.replaceChildren(...tabFiltered.map(createMarketCard));
+    elements.marketsList.replaceChildren(...cards);
     return;
   }
 
-  const grouped = groupOddsForPlayer(query, tabFiltered);
-
-  if (!grouped.length) {
-    elements.marketsList.replaceChildren(createEmptyState(`No odds found for "${query}"`, "👤"));
+  if (!tabFiltered.length) {
+    elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
     return;
   }
 
-  elements.marketsList.replaceChildren(createPlayerGroupCard(query, grouped));
+  elements.marketsList.replaceChildren(...tabFiltered.map(createMarketCard));
 }
 
 /**
@@ -262,7 +247,7 @@ const STATISTIKA_KEYWORDS = [
  * @param {"all"|"standard"|"statistika"|"specijali"} tab
  */
 function filterMarketsByTab(markets, tab) {
-  if (tab === "specijali") return markets.filter((m) =>  m.marketName.includes(";"));
+  if (tab === "specijali") return markets.filter((m) => m.marketName.includes(";"));
   if (tab === "all")       return markets;
 
   // Both "standard" and "statistika" start from non-combo markets
@@ -274,6 +259,14 @@ function filterMarketsByTab(markets, tab) {
 
   if (tab === "standard") {
     return nonCombo.filter((m) => !isStatistikaMarket(m.marketName));
+  }
+
+  if (tab === "home-players") {
+    return nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "home"));
+  }
+
+  if (tab === "away-players") {
+    return nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "away"));
   }
 
   return markets;
@@ -307,27 +300,6 @@ export function initMarketTabs() {
   }
 }
 
-function renderPlayersDropdown(markets) {
-  const players = extractPlayers(markets);
-  const fragment = document.createDocumentFragment();
-  fragment.append(new Option("All markets", ""));
-
-  for (const player of players) {
-    fragment.append(new Option(player, player));
-  }
-
-  elements.playerSelect.replaceChildren(fragment);
-  elements.playerSelect.disabled = players.length === 0;
-
-  if (!players.length) {
-    elements.playerSelect.replaceChildren(new Option("No players detected", ""));
-  }
-}
-
-function resetPlayers(label = "Choose an event first") {
-  elements.playerSelect.disabled = true;
-  elements.playerSelect.replaceChildren(new Option(label, ""));
-}
 
 function resetCsvOutput(label) {
   elements.generateCsvButton.disabled = true;
@@ -432,42 +404,54 @@ function isLikelyPlayerName(value) {
   return words.length >= 2 && words.length <= 4 && words.every((word) => /^[A-ZČĆŽŠĐA-Z][\p{L}',.-]+$/u.test(word));
 }
 
-function groupOddsForPlayer(query, markets) {
-  const normalizedQuery = normalizeSearchText(query);
-  const matches = [];
+
+function createPlayerGroupCardsByTeam(markets, team) {
+  const playerMap = new Map();
 
   for (const market of markets) {
-    if (market.marketName.includes(";")) continue;
-
     for (const odd of market.odds) {
-      const searchable = normalizeSearchText(`${market.marketName} ${odd.name}`);
-
-      if (searchable.includes(normalizedQuery)) {
-        matches.push({
-          marketName: market.marketName,
-          odd
-        });
+      if (!odd.playerName || odd.playerTeam !== team) continue;
+      const norm = normalizeSearchText(odd.playerName);
+      if (!playerMap.has(norm)) {
+        playerMap.set(norm, { name: odd.playerName, matches: [] });
       }
+      playerMap.get(norm).matches.push({ marketName: market.marketName, odd });
     }
   }
 
-  return matches;
+  return Array.from(playerMap.values())
+    .sort((a, b) => formatPlayerName(a.name).localeCompare(formatPlayerName(b.name)))
+    .map(({ name, matches }) => createPlayerGroupCard(formatPlayerName(name), matches));
 }
 
 function createPlayerGroupCard(query, matches) {
   const card = document.createElement("article");
+  const header = document.createElement("button");
+  const headerText = document.createElement("div");
   const title = document.createElement("h3");
-  const subtitle = document.createElement("p");
+  const count = document.createElement("span");
+  const chevron = document.createElement("span");
   const oddsList = document.createElement("div");
 
   card.className = "market-card player-results";
+  header.className = "player-card-header";
+  header.type = "button";
+  headerText.className = "player-card-header-text";
   title.className = "market-title";
-  subtitle.className = "market-subtitle";
+  count.className = "player-card-count";
+  chevron.className = "player-card-chevron";
   oddsList.className = "player-odds-list";
+
   title.textContent = query;
-  subtitle.textContent = `${matches.length} matching odds grouped by player`;
+  count.textContent = `${matches.length} odds`;
+  chevron.textContent = "›";
   oddsList.append(...matches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
-  card.append(title, subtitle, oddsList);
+
+  header.addEventListener("click", () => card.classList.toggle("is-expanded"));
+
+  headerText.append(title, count);
+  header.append(headerText, chevron);
+  card.append(header, oddsList);
 
   return card;
 }

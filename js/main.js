@@ -1,10 +1,9 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, generatePlayerBlock, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, makeCsvFilename } from "./csv.js";
 import {
   getCurrentMarkets,
   getSelectedCompetition,
   getSelectedEvent,
-  getSelectedPlayer,
   getElements,
   getCsvOutput,
   initMarketTabs,
@@ -23,7 +22,7 @@ import {
   setLoading
 } from "./ui.js";
 
-const { select, eventSelect, playerSelect, refreshButton, generateCsvButton, addToCsvButton, downloadCsvButton } = getElements();
+const { select, eventSelect, refreshButton, generateCsvButton, addToCsvButton, downloadCsvButton } = getElements();
 let eventsRequestId = 0;
 let marketsRequestId = 0;
 
@@ -98,7 +97,6 @@ async function loadMarketsForSelectedEvent() {
 
 select.addEventListener("change", loadEventsForSelectedCompetition);
 eventSelect.addEventListener("change", loadMarketsForSelectedEvent);
-playerSelect.addEventListener("change", renderMarketsForCurrentFilter);
 refreshButton.addEventListener("click", loadCompetitions);
 generateCsvButton.addEventListener("click", generateCsv);
 addToCsvButton.addEventListener("click", addToCurrentCsv);
@@ -113,21 +111,34 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
 
   const existing = getCsvOutput().trim();
 
+  const teamName = odd.playerTeam === "home"
+    ? (event.homeTeam || event.matchName)
+    : odd.playerTeam === "away"
+      ? (event.awayTeam || event.matchName)
+      : (event.awayTeam || event.homeTeam || event.matchName);
+  const rawName = String(odd.playerName ?? "");
+  const nameParts = rawName.split(",").map((p) => p.trim()).filter(Boolean);
+  const playerName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : rawName;
+
   let newCsv;
-  if (existing) {
-    newCsv = `${existing}\r\n${row}`;
-  } else {
-    const teamName = odd.playerTeam === "home"
-      ? (event.homeTeam || event.matchName)
-      : odd.playerTeam === "away"
-        ? (event.awayTeam || event.matchName)
-        : (event.awayTeam || event.homeTeam || event.matchName);
-    const playerName = formatPlayerName(odd.playerName);
+  if (!existing) {
     const lines = [CSV_COLUMNS.join(",")];
     if (teamName) lines.push(`MATCH_NAME:${teamName}`);
     if (playerName) lines.push(`LEAGUE_NAME:${playerName}`);
     lines.push(row);
     newCsv = lines.join("\r\n");
+  } else {
+    const lastLeague = existing.split(/\r?\n/).filter((l) => l.startsWith("LEAGUE_NAME:")).pop();
+    const lastPlayer = lastLeague ? lastLeague.slice("LEAGUE_NAME:".length) : "";
+    if (playerName && playerName !== lastPlayer) {
+      const blockLines = [];
+      if (teamName) blockLines.push(`MATCH_NAME:${teamName}`);
+      blockLines.push(`LEAGUE_NAME:${playerName}`);
+      blockLines.push(row);
+      newCsv = `${existing}\r\n${blockLines.join("\r\n")}`;
+    } else {
+      newCsv = `${existing}\r\n${row}`;
+    }
   }
 
   renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
@@ -143,7 +154,7 @@ document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
   if (!rowToRemove) return;
 
   const existing = getCsvOutput();
-  const newCsv = removeCsvRow(existing, rowToRemove);
+  const newCsv = removePlayerOddFromCsv(existing, rowToRemove);
 
   const event = getSelectedEvent();
   renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
@@ -234,48 +245,25 @@ document.addEventListener("remove-statistika-from-csv", ({ detail: { button } })
   button.classList.remove("is-added");
 });
 
-function formatPlayerName(value) {
-  const parts = String(value ?? "").split(",").map((p) => p.trim()).filter(Boolean);
-  return parts.length === 2 ? `${parts[1]} ${parts[0]}` : String(value ?? "");
-}
 
 loadCompetitions();
 initMarketTabs();
 
 function addToCurrentCsv() {
-  const event = getSelectedEvent();
-  const markets = getCurrentMarkets();
-  const player = getSelectedPlayer();
-
-  if (!event || !markets.length || !player) return;
-
-  const existing = getCsvOutput().trim();
-
-  if (!existing) {
-    const csv = generateOddsCsv({ event, markets, player });
-    renderCsvOutput(csv, makeCsvFilename(event, player), countCsvRows(csv));
-    return;
-  }
-
-  const block = generatePlayerBlock({ event, markets, playerName: player });
-  if (!block) return;
-
-  const newCsv = `${existing}\r\n${block}`;
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  // no-op: player selection removed; individual "+" buttons handle CSV appending
 }
 
 function generateCsv() {
   const event = getSelectedEvent();
   const markets = getCurrentMarkets();
-  const player = getSelectedPlayer();
 
   if (!event || !markets.length) {
     renderCsvOutput("", "", 0);
     return;
   }
 
-  const csv = generateOddsCsv({ event, markets, player });
-  const filename = makeCsvFilename(event, player);
+  const csv = generateOddsCsv({ event, markets, player: null });
+  const filename = makeCsvFilename(event, null);
   renderCsvOutput(csv, filename, countCsvRows(csv));
 }
 

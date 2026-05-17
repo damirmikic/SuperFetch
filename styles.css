@@ -630,9 +630,56 @@ select:disabled {
   grid-template-columns: 1fr;
 }
 
+.player-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.player-card-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-card-count {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.player-card-chevron {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-3);
+  transition: transform var(--t);
+  flex-shrink: 0;
+}
+
+.player-results.is-expanded .player-card-chevron {
+  transform: rotate(90deg);
+}
+
 .player-odds-list {
   display: grid;
   gap: 6px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, margin-top 0.25s ease;
+}
+
+.player-results.is-expanded .player-odds-list {
+  max-height: 4000px;
+  margin-top: 12px;
 }
 
 .player-odd-row {
