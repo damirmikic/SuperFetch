@@ -282,6 +282,16 @@ select:disabled {
   opacity: 0.6;
 }
 
+#competition-select {
+  border-color: var(--line-bright);
+  box-shadow: 0 0 0 1px var(--line-bright);
+}
+
+#competition-select:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 8px var(--accent-glow);
+}
+
 /* ═══════════════════════════════════════
    MARKET TABS
 ═══════════════════════════════════════ */
