@@ -358,13 +358,20 @@ function extractLineOrNull(text) {
 }
 
 function formatEventDateTime(value) {
-  const date = value ? new Date(value.replace(" ", "T")) : new Date();
+  const date = value ? new Date(value.replace(" ", "T") + "Z") : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
-  const pad = (part) => String(part).padStart(2, "0");
+
+  const parts = new Intl.DateTimeFormat("sr-Latn-RS", {
+    timeZone: "Europe/Belgrade",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false
+  }).formatToParts(safeDate);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? "00";
 
   return {
-    date: `${pad(safeDate.getDate())}.${pad(safeDate.getMonth() + 1)}.${safeDate.getFullYear()}`,
-    time: `${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`
+    date: `${get("day")}.${get("month")}.${get("year")}`,
+    time: `${get("hour")}:${get("minute")}`
   };
 }
 
