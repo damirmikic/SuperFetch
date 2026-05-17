@@ -80,8 +80,8 @@ body {
   height: 64px;
   background: rgba(13, 17, 23, 0.92);
   border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .topbar-brand {
@@ -462,6 +462,16 @@ select:disabled {
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
+}
+
+.field--spaced {
+  margin-top: 16px;
+}
+
+.market-title-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .market-subtitle {

@@ -1,5 +1,5 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, generatePlayerBlock, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, generateOddsCsv, generatePlayerBlock, makeCsvFilename } from "./csv.js";
 import {
   getCurrentMarkets,
   getSelectedCompetition,
@@ -195,6 +195,42 @@ document.addEventListener("remove-specijal-from-csv", ({ detail: { button } }) =
   delete button.dataset.csvRow;
   button.textContent = "+";
   button.title = "Add to CSV as Specijali";
+  button.classList.remove("is-added");
+});
+
+document.addEventListener("add-statistika-to-csv", ({ detail: { market, button } }) => {
+  const event = getSelectedEvent();
+  if (!event) return;
+
+  const row = buildStatistikaMarketCsvRow({ event, market });
+  if (!row) return;
+
+  const existing = getCsvOutput().trim();
+  const eventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
+  const newCsv = existing
+    ? `${existing}\r\n${row}`
+    : `${CSV_COLUMNS.join(",")}\r\nMATCH_NAME:Specijal\r\nLEAGUE_NAME:${eventName}\r\n${row}`;
+
+  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  button.dataset.csvRow = row;
+  button.textContent = "✓";
+  button.title = "Remove from CSV";
+  button.classList.add("is-added");
+});
+
+document.addEventListener("remove-statistika-from-csv", ({ detail: { button } }) => {
+  const rowToRemove = button.dataset.csvRow;
+  if (!rowToRemove) return;
+
+  const existing = getCsvOutput();
+  const newCsv = removeCsvRow(existing, rowToRemove);
+
+  const event = getSelectedEvent();
+  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+
+  delete button.dataset.csvRow;
+  button.textContent = "+";
+  button.title = "Add to CSV";
   button.classList.remove("is-added");
 });
 

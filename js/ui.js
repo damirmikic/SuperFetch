@@ -286,6 +286,7 @@ function filterMarketsByTab(markets, tab) {
  */
 function isStatistikaMarket(marketName) {
   const norm = normalizeSearchText(marketName);
+  if (norm.includes("igrac")) return false;
   return STATISTIKA_KEYWORDS.some((kw) => norm.includes(normalizeSearchText(kw)));
 }
 
@@ -540,23 +541,46 @@ function formatEventOption(event) {
 
 function createMarketCard(market) {
   const card = document.createElement("article");
-  const title = document.createElement("h3");
   const oddsGrid = document.createElement("div");
   const isCombo = market.marketName.includes(";");
+  const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
 
   card.className = isCombo ? "market-card market-card--combo" : "market-card";
-  title.className = "market-title";
   oddsGrid.className = "odds-grid";
-  title.textContent = market.marketName;
   oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isCombo ? market.marketName : null)));
-  card.append(title, oddsGrid);
+
+  if (isStatistika) {
+    const titleArea = document.createElement("div");
+    const title = document.createElement("h3");
+    const addBtn = document.createElement("button");
+    titleArea.className = "market-title-area";
+    title.className = "market-title";
+    title.textContent = market.marketName;
+    addBtn.className = "add-odd-button";
+    addBtn.type = "button";
+    addBtn.title = "Add to CSV";
+    addBtn.textContent = "+";
+    addBtn.addEventListener("click", () => {
+      if (addBtn.classList.contains("is-added")) {
+        document.dispatchEvent(new CustomEvent("remove-statistika-from-csv", { detail: { button: addBtn } }));
+      } else {
+        document.dispatchEvent(new CustomEvent("add-statistika-to-csv", { detail: { market, button: addBtn } }));
+      }
+    });
+    titleArea.append(title, addBtn);
+    card.append(titleArea, oddsGrid);
+  } else {
+    const title = document.createElement("h3");
+    title.className = "market-title";
+    title.textContent = market.marketName;
+    card.append(title, oddsGrid);
+  }
 
   return card;
 }
 
 function createOddButton(odd, contextText = "", comboMarketName = null) {
   const isCombo = comboMarketName !== null;
-  const wrapper = isCombo ? document.createElement("div") : null;
   const button = document.createElement("button");
   const label = document.createElement("span");
   const price = document.createElement("span");
@@ -579,16 +603,13 @@ function createOddButton(odd, contextText = "", comboMarketName = null) {
   addBtn.textContent = "+";
   addBtn.addEventListener("click", () => {
     if (addBtn.classList.contains("is-added")) {
-      document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", {
-        detail: { button: addBtn }
-      }));
+      document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
     } else {
-      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
-        detail: { marketName: comboMarketName, odd, button: addBtn }
-      }));
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: comboMarketName, odd, button: addBtn } }));
     }
   });
 
+  const wrapper = document.createElement("div");
   wrapper.className = "combo-odd-wrapper";
   wrapper.append(button, addBtn);
   return wrapper;

@@ -16,10 +16,47 @@ export function buildSpecijaliBlock({ event, marketName, odd }) {
   if (!row) return "";
   const eventName = formatMatchName(event);
   return [
-    formatCsvRow([`MATCH_NAME:Specijali`]),
+    formatCsvRow([`MATCH_NAME:Specijal`]),
     formatCsvRow([`LEAGUE_NAME:${eventName}`]),
     row
   ].join("\r\n");
+}
+
+/**
+ * Build a single CSV row for an entire statistika market.
+ * Maps Under → U column, Over → O column; extracts the line value from odd names.
+ */
+export function buildStatistikaMarketCsvRow({ event, market }) {
+  const { date, time } = formatEventDateTime(event.matchDate);
+  const marketName = String(market.marketName).trim();
+  if (!marketName) return "";
+
+  let line = "";
+  let underPrice = "";
+  let overPrice = "";
+
+  for (const odd of market.odds) {
+    const norm = normalizeSearchText(odd.name);
+    if (!line) {
+      const m = String(odd.name).match(/(\d+(?:[.,]\d+)?)/);
+      if (m) line = m[1].replace(",", ".");
+    }
+    if (norm.includes("manje") || norm.includes("under")) {
+      underPrice = formatPrice(odd.price);
+    } else if (norm.includes("vise") || norm.includes("over")) {
+      overPrice = formatPrice(odd.price);
+    }
+  }
+
+  let domacin = marketName;
+  let gost = "";
+  const dashIdx = marketName.indexOf(" - ");
+  if (dashIdx !== -1) {
+    domacin = marketName.slice(0, dashIdx).trim();
+    gost = marketName.slice(dashIdx + 3).trim();
+  }
+
+  return formatCsvRow([date, time, "", domacin, gost, "", "", "", line, underPrice, overPrice, "", ""]);
 }
 
 /**
@@ -102,7 +139,7 @@ export function removeSpecijalRowFromCsv(csv, rowToRemove) {
   // Walk backwards from the (now-shifted) position to find the owning MATCH_NAME:Specijali header
   let matchStart = -1;
   for (let i = Math.min(idx - 1, lines.length - 1); i >= 0; i--) {
-    if (lines[i].startsWith("MATCH_NAME:Specijali")) {
+    if (lines[i].startsWith("MATCH_NAME:Specijal")) {
       matchStart = i;
       break;
     }
