@@ -91,6 +91,15 @@
             <button class="market-tab"           role="tab" aria-selected="false" data-tab="away-players" id="tab-away-players" aria-controls="markets-list">Gost. igrači</button>
           </div>
 
+          <!-- Specijali odds filter -->
+          <div class="specijali-filter" id="specijali-filter" hidden>
+            <span class="field-label">Kvota</span>
+            <input id="specijali-min" class="odds-range-input" type="number" min="1.01" step="0.01" placeholder="od">
+            <span class="specijali-filter-sep">—</span>
+            <input id="specijali-max" class="odds-range-input" type="number" min="1.01" step="0.01" placeholder="do">
+            <button id="specijali-filter-clear" class="icon-btn" type="button" title="Clear filter">×</button>
+          </div>
+
           <!-- CSV toolbar -->
           <div class="csv-panel" aria-label="CSV output">
             <div class="csv-actions">

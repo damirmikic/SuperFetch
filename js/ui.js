@@ -12,7 +12,11 @@ const elements = {
   eventsStatus: document.querySelector("#events-status"),
   csvStatus: document.querySelector("#csv-status"),
   marketsStatus: document.querySelector("#markets-status"),
-  marketTabs: document.querySelectorAll(".market-tab")
+  marketTabs: document.querySelectorAll(".market-tab"),
+  specijalFilter: document.querySelector("#specijali-filter"),
+  specijalMin: document.querySelector("#specijali-min"),
+  specijalMax: document.querySelector("#specijali-max"),
+  specijalFilterClear: document.querySelector("#specijali-filter-clear")
 };
 
 let optionIndex = new Map();
@@ -250,7 +254,18 @@ const STATISTIKA_KEYWORDS = [
  * @param {"all"|"standard"|"statistika"|"specijali"} tab
  */
 function filterMarketsByTab(markets, tab) {
-  if (tab === "specijali") return markets.filter((m) => m.marketName.includes(";"));
+  if (tab === "specijali") {
+    const specijali = markets.filter((m) => m.marketName.includes(";"));
+    const min = parseFloat(elements.specijalMin.value);
+    const max = parseFloat(elements.specijalMax.value);
+    if (Number.isNaN(min) && Number.isNaN(max)) return specijali;
+    return specijali.filter((m) => m.odds.some((o) => {
+      if (!Number.isFinite(o.price)) return false;
+      if (!Number.isNaN(min) && o.price < min) return false;
+      if (!Number.isNaN(max) && o.price > max) return false;
+      return true;
+    }));
+  }
   if (tab === "all")       return markets;
 
   // Both "standard" and "statistika" start from non-combo markets
@@ -298,9 +313,18 @@ export function initMarketTabs() {
         t.setAttribute("aria-selected", String(active));
       }
 
+      elements.specijalFilter.hidden = activeMarketTab !== "specijali";
       renderMarketsForCurrentFilter();
     });
   }
+
+  elements.specijalMin.addEventListener("input", renderMarketsForCurrentFilter);
+  elements.specijalMax.addEventListener("input", renderMarketsForCurrentFilter);
+  elements.specijalFilterClear.addEventListener("click", () => {
+    elements.specijalMin.value = "";
+    elements.specijalMax.value = "";
+    renderMarketsForCurrentFilter();
+  });
 }
 
 
