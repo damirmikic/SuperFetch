@@ -432,15 +432,26 @@ function isLikelyPlayerName(value) {
 }
 
 
+function resolvePlayerName(odd) {
+  // playerName is sometimes a raw API ID like "sr:player:1347728" — fall back to odd.name
+  if (odd.playerName && !String(odd.playerName).includes(":")) return odd.playerName;
+  // odd.name format: "Lastname, Firstname - condition text"  — take only the name part
+  const namePart = String(odd.name).split(" - ")[0].trim();
+  const m = namePart.match(/^([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*),\s*([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*)$/u);
+  return m ? `${m[1]}, ${m[2]}` : null;
+}
+
 function createPlayerGroupCardsByTeam(markets, team) {
   const playerMap = new Map();
 
   for (const market of markets) {
     for (const odd of market.odds) {
       if (!odd.playerName || odd.playerTeam !== team) continue;
-      const norm = normalizeSearchText(odd.playerName);
+      const playerName = resolvePlayerName(odd);
+      if (!playerName) continue;
+      const norm = normalizeSearchText(playerName);
       if (!playerMap.has(norm)) {
-        playerMap.set(norm, { name: odd.playerName, matches: [] });
+        playerMap.set(norm, { name: playerName, matches: [] });
       }
       playerMap.get(norm).matches.push({ marketName: market.marketName, odd });
     }

@@ -113,9 +113,15 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
     : odd.playerTeam === "away"
       ? (event.awayTeam || event.matchName)
       : (event.awayTeam || event.homeTeam || event.matchName);
-  const rawName = String(odd.playerName ?? "");
-  const nameParts = rawName.split(",").map((p) => p.trim()).filter(Boolean);
-  const playerName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : rawName;
+  const resolvedName = (odd.playerName && !String(odd.playerName).includes(":"))
+    ? String(odd.playerName)
+    : (() => {
+        const namePart = String(odd.name).split(" - ")[0].trim();
+        const m = namePart.match(/^([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*),\s*([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*)$/u);
+        return m ? `${m[1]}, ${m[2]}` : "";
+      })();
+  const nameParts = resolvedName.split(",").map((p) => p.trim()).filter(Boolean);
+  const playerName = nameParts.length === 2 ? `${nameParts[1]} ${nameParts[0]}` : resolvedName;
 
   let newCsv;
   if (!existing) {
