@@ -224,6 +224,14 @@ export function getMarginMultiplier() {
   return direction === "decrease" ? 1 - pct / 100 : 1 + pct / 100;
 }
 
+export function refreshDisplayedPrices() {
+  const m = getMarginMultiplier();
+  for (const el of document.querySelectorAll(".odd-price[data-original-price], .player-odd-price[data-original-price]")) {
+    const orig = parseFloat(el.dataset.originalPrice);
+    if (Number.isFinite(orig)) el.textContent = (orig * m).toFixed(2);
+  }
+}
+
 export function renderMarketsForCurrentFilter() {
   if (!currentMarkets.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
@@ -552,7 +560,8 @@ function createPlayerOddRow(marketName, odd) {
   price.className = "player-odd-price";
   market.textContent = marketName;
   name.textContent = odd.name;
-  price.textContent = Number.isFinite(odd.price) ? odd.price.toFixed(2) : "-";
+  price.dataset.originalPrice = odd.price;
+  price.textContent = Number.isFinite(odd.price) ? (odd.price * getMarginMultiplier()).toFixed(2) : "-";
 
   addButton.addEventListener("click", () => {
     if (addButton.classList.contains("is-added")) {
@@ -651,7 +660,8 @@ function createOddButton(odd, contextText = "", comboMarketName = null) {
   label.className = "odd-label";
   price.className = "odd-price";
   label.textContent = contextText ? `${contextText} - ${odd.name}` : odd.name;
-  price.textContent = Number.isFinite(odd.price) ? odd.price.toFixed(2) : "-";
+  price.dataset.originalPrice = odd.price;
+  price.textContent = Number.isFinite(odd.price) ? (odd.price * getMarginMultiplier()).toFixed(2) : "-";
   button.append(label, price);
 
   if (!isCombo) return button;
