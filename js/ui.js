@@ -296,41 +296,45 @@ const STATISTIKA_KEYWORDS = [
  * @param {Array} markets
  * @param {"all"|"standard"|"statistika"|"specijali"} tab
  */
+function applyOddsRangeFilter(markets) {
+  const min = parseFloat(elements.specijalMin.value);
+  const max = parseFloat(elements.specijalMax.value);
+  if (Number.isNaN(min) && Number.isNaN(max)) return markets;
+  return markets.filter((m) => m.odds.some((o) => {
+    if (!Number.isFinite(o.price)) return false;
+    if (!Number.isNaN(min) && o.price < min) return false;
+    if (!Number.isNaN(max) && o.price > max) return false;
+    return true;
+  }));
+}
+
 function filterMarketsByTab(markets, tab) {
   if (tab === "specijali") {
-    const specijali = markets.filter((m) => m.marketName.includes(";"));
-    const min = parseFloat(elements.specijalMin.value);
-    const max = parseFloat(elements.specijalMax.value);
-    if (Number.isNaN(min) && Number.isNaN(max)) return specijali;
-    return specijali.filter((m) => m.odds.some((o) => {
-      if (!Number.isFinite(o.price)) return false;
-      if (!Number.isNaN(min) && o.price < min) return false;
-      if (!Number.isNaN(max) && o.price > max) return false;
-      return true;
-    }));
+    return applyOddsRangeFilter(markets.filter((m) => m.marketName.includes(";")));
   }
-  if (tab === "all")       return markets;
+
+  if (tab === "all") return applyOddsRangeFilter(markets);
 
   // Both "standard" and "statistika" start from non-combo markets
   const nonCombo = markets.filter((m) => !m.marketName.includes(";"));
 
   if (tab === "statistika") {
-    return nonCombo.filter((m) => isStatistikaMarket(m.marketName));
+    return applyOddsRangeFilter(nonCombo.filter((m) => isStatistikaMarket(m.marketName)));
   }
 
   if (tab === "standard") {
-    return nonCombo.filter((m) => !isStatistikaMarket(m.marketName));
+    return applyOddsRangeFilter(nonCombo.filter((m) => !isStatistikaMarket(m.marketName)));
   }
 
   if (tab === "home-players") {
-    return nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "home"));
+    return applyOddsRangeFilter(nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "home")));
   }
 
   if (tab === "away-players") {
-    return nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "away"));
+    return applyOddsRangeFilter(nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "away")));
   }
 
-  return markets;
+  return applyOddsRangeFilter(markets);
 }
 
 /**
@@ -356,7 +360,6 @@ export function initMarketTabs() {
         t.setAttribute("aria-selected", String(active));
       }
 
-      elements.specijalFilter.hidden = !["specijali", "home-players", "away-players"].includes(activeMarketTab);
       renderMarketsForCurrentFilter();
     });
   }
