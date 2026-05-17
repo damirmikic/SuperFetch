@@ -5,6 +5,7 @@ import {
   getSelectedEvent,
   getElements,
   getCsvOutput,
+  getCurrentCsvFilename,
   getMarginMultiplier,
   refreshDisplayedPrices,
   initMarketTabs,
@@ -154,7 +155,7 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
     }
   }
 
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  renderCsvOutput(newCsv, makeCsvFilename(event, teamName), countCsvRows(newCsv));
   button.dataset.csvRow = row;
   button.dataset.originalPrice = odd.price;
   button.textContent = "✓";
@@ -177,7 +178,7 @@ document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
 
   const event = getSelectedEvent();
   if (clearCsvIfNoSelections(event)) return;
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
 });
 
 document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button } }) => {
@@ -201,7 +202,8 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
     newCsv = `${CSV_COLUMNS.join(",")}\r\n${block}`;
   }
 
-  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
+  const eventFilename = makeCsvFilename(event, event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName);
+  renderCsvOutput(newCsv, eventFilename, countCsvRows(newCsv));
   // Store the exact row string so the remove handler can find it
   button.dataset.csvRow = row;
   button.dataset.originalPrice = odd.price;
@@ -225,7 +227,7 @@ document.addEventListener("remove-specijal-from-csv", ({ detail: { button } }) =
 
   const event = getSelectedEvent();
   if (clearCsvIfNoSelections(event)) return;
-  renderCsvOutput(newCsv, makeCsvFilename(event, "specijali"), countCsvRows(newCsv));
+  renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
 });
 
 document.addEventListener("add-statistika-to-csv", ({ detail: { market, button } }) => {
@@ -245,7 +247,8 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
     ? `${existing}\r\n${row}`
     : `${CSV_COLUMNS.join(",")}\r\nMATCH_NAME:Specijal\r\nLEAGUE_NAME:${eventName}\r\n${row}`;
 
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  const statFilename = makeCsvFilename(event, event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName);
+  renderCsvOutput(newCsv, statFilename, countCsvRows(newCsv));
   button.dataset.csvRow = row;
   // Store original U/O prices for Primeni recalculation
   for (const o of market.odds) {
@@ -272,7 +275,7 @@ document.addEventListener("remove-statistika-from-csv", ({ detail: { button } })
 
   const event = getSelectedEvent();
   if (clearCsvIfNoSelections(event)) return;
-  renderCsvOutput(newCsv, makeCsvFilename(event, null), countCsvRows(newCsv));
+  renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
 });
 
 

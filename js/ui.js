@@ -217,6 +217,10 @@ export function getCsvOutput() {
   return elements.csvOutput.value;
 }
 
+export function getCurrentCsvFilename() {
+  return elements.downloadCsvButton.dataset.filename || "odds.csv";
+}
+
 export function getMarginMultiplier() {
   const pct = parseFloat(document.querySelector("#margin-pct").value);
   if (!Number.isFinite(pct) || pct <= 0) return 1;

@@ -188,7 +188,7 @@ export function removeSpecijalRowFromCsv(csv, rowToRemove) {
       matchStart = i;
       break;
     }
-    if (lines[i].startsWith("MATCH_NAME:")) break; // different block — stop
+    if (lines[i].startsWith("MATCH_NAME:")) break;
   }
 
   if (matchStart !== -1) {
@@ -271,9 +271,17 @@ function stripPlayerPrefix(name) {
     .trim();
 }
 
+function toAsciiMarketName(value) {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0111/g, "d")
+    .replace(/\u0110/g, "D");
+}
+
 function mapOddToCsvMarket(market, odd) {
   const mkt = normalizeSearchText(market.marketName);
-  const name = stripPlayerPrefix(market.marketName);
+  const name = toAsciiMarketName(stripPlayerPrefix(market.marketName));
   const answer = extractLineOrNull(odd.name) ?? extractLineOrNull(odd.specialBetValue ?? "") ?? "DA";
 
   if (mkt.includes("2 ili vise")) return { market: name, answer };
@@ -284,10 +292,12 @@ function mapOddToCsvMarket(market, odd) {
   if (mkt.includes("karton")) return { market: name, answer };
   if (mkt.includes("gol") && mkt.includes("ili") && mkt.includes("asistir")) return { market: "gol ili asistencija", answer: "DA" };
   if (mkt.includes("gol") && mkt.includes("asistir")) return { market: "gol i asistencija", answer: "DA" };
+  if (mkt.includes("ukupan") && mkt.includes("asistencij")) return { market: "asistencija", answer };
   if (mkt.includes("asistencij")) return { market: name, answer };
-  if (mkt.includes("ukupan") && mkt.includes("sutev") && mkt.includes("okvir")) return { market: name, answer };
+  if (mkt.includes("ukupan") && mkt.includes("sutev") && mkt.includes("okvir")) return { market: "sutevi u okvir gola", answer };
   if (mkt.includes("ukupno") && mkt.includes("sutev")) return { market: name, answer };
-  if (mkt.includes("faul") && mkt.includes("nad") && mkt.includes("igrac")) return { market: "uk. faulova nad igračem", answer };
+  if (mkt.includes("faul") && mkt.includes("nacinjenih")) return { market: "ukupno nacinjenih faulova", answer };
+  if (mkt.includes("faul") && mkt.includes("nad") && mkt.includes("igrac")) return { market: "uk. faulova nad igracem", answer };
   if (mkt.includes("faul") && mkt.includes("nad")) return { market: name, answer };
   if (mkt.includes("faul")) return { market: name, answer };
   if (mkt.includes("ofsajd")) return { market: name, answer };
