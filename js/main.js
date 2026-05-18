@@ -282,6 +282,14 @@ document.addEventListener("remove-statistika-from-csv", ({ detail: { button } })
 });
 
 
+function getPlayerTeamFromCsv(csv) {
+  if (!csv) return null;
+  const line = csv.split(/\r?\n/).find((l) => l.startsWith("MATCH_NAME:"));
+  if (!line) return null;
+  const name = line.slice("MATCH_NAME:".length).trim();
+  return name && name !== "Specijal" ? name : null;
+}
+
 function clearCsvIfNoSelections(event) {
   const hasAny = document.querySelector(".add-odd-button.is-added");
   if (!hasAny) {
@@ -321,7 +329,7 @@ function applyMargin() {
 
   refreshDisplayedPrices();
   const event = getSelectedEvent();
-  renderCsvOutput(csv, makeCsvFilename(event, null), countCsvRows(csv));
+  renderCsvOutput(csv, makeCsvFilename(event, getPlayerTeamFromCsv(csv)), countCsvRows(csv));
 }
 
 document.querySelector("#margin-apply").addEventListener("click", applyMargin);
