@@ -195,6 +195,8 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   if (!row) return;
 
   const existing = getCsvOutput().trim();
+  if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
+
   let newCsv;
 
   if (existing) {
@@ -254,6 +256,8 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
   if (!row) return;
 
   const existing = getCsvOutput().trim();
+  if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
+
   const eventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
   const newCsv = existing
     ? `${existing}\r\n${row}`

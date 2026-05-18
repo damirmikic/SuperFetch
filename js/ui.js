@@ -754,7 +754,7 @@ function createMarketCard(market) {
     return card;
   }
 
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null, market.uuid)));
 
   if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
@@ -765,6 +765,7 @@ function createMarketCard(market) {
     title.textContent = market.marketName;
     addBtn.className = "add-odd-button";
     addBtn.type = "button";
+    addBtn.dataset.marketUuid = market.uuid;
     addBtn.title = "Add to CSV";
     addBtn.textContent = "+";
     addBtn.addEventListener("click", () => {
@@ -786,7 +787,7 @@ function createMarketCard(market) {
   return card;
 }
 
-function createOddButton(odd, contextText = "", comboMarketName = null) {
+function createOddButton(odd, contextText = "", comboMarketName = null, marketUuid = null) {
   const isCombo = comboMarketName !== null;
   const button = document.createElement("button");
   const label = document.createElement("span");
@@ -813,6 +814,8 @@ function createOddButton(odd, contextText = "", comboMarketName = null) {
   addBtn.title = "Add to CSV as Specijali";
   addBtn.textContent = "+";
   addBtn.dataset.currentMarketName = comboMarketName;
+  if (marketUuid) addBtn.dataset.marketUuid = marketUuid;
+  if (odd.uuid) addBtn.dataset.oddUuid = odd.uuid;
   addBtn.addEventListener("click", () => {
     if (addBtn.classList.contains("is-added")) {
       document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
@@ -884,6 +887,51 @@ function _getDefaultHost() {
   return _defaultHost;
 }
 
+function csvContainsRow(csv, row) {
+  return String(csv).split(/\r?\n/).some((line) => line === row);
+}
+
+function findVisibleStatistikaButton(marketUuid, odd = null) {
+  for (const button of document.querySelectorAll(".add-odd-button")) {
+    if (button.closest("#default-btn-host")) continue;
+    if (!button.dataset.marketUuid || String(button.dataset.marketUuid) !== String(marketUuid)) continue;
+    if (odd === null) return button;
+    if (button.dataset.oddUuid && String(button.dataset.oddUuid) === String(odd.uuid)) return button;
+  }
+  return null;
+}
+
+function copyButtonState(source, target) {
+  for (const key of ["csvRow", "originalPrice", "originalPriceU", "originalPriceO", "oddUuid", "marketUuid"]) {
+    if (source.dataset[key]) {
+      target.dataset[key] = source.dataset[key];
+    }
+  }
+  target.classList.add("is-added");
+  target.textContent = "✓";
+  target.title = "Remove from CSV";
+}
+
+function syncHiddenDefaultButtons() {
+  const host = _getDefaultHost();
+  if (!host) return;
+
+  for (const hiddenButton of Array.from(host.querySelectorAll(".add-odd-button.is-added"))) {
+    if (!hiddenButton.dataset.marketUuid) continue;
+    const visibleButton = Array.from(document.querySelectorAll(".add-odd-button")).find((button) => {
+      if (button.closest("#default-btn-host")) return false;
+      if (!button.dataset.marketUuid || String(button.dataset.marketUuid) !== String(hiddenButton.dataset.marketUuid)) return false;
+      if (hiddenButton.dataset.oddUuid) {
+        return button.dataset.oddUuid === hiddenButton.dataset.oddUuid;
+      }
+      return !button.dataset.oddUuid;
+    });
+    if (!visibleButton || visibleButton.classList.contains("is-added")) continue;
+    copyButtonState(hiddenButton, visibleButton);
+    hiddenButton.remove();
+  }
+}
+
 function _balanceScore(market) {
   let under = null, over = null;
   for (const odd of market.odds) {
@@ -900,6 +948,8 @@ export function addDefaultStatistikaMarkets() {
   const home = currentEvent.homeTeam || "";
   const away = currentEvent.awayTeam || "";
   const host = _getDefaultHost();
+
+  syncHiddenDefaultButtons();
 
   // Remove stale non-added buttons from previous partial runs
   for (const btn of Array.from(host.children)) {
@@ -923,6 +973,15 @@ export function addDefaultStatistikaMarkets() {
         for (const odd of market.odds) {
           const specKey = `${specNorm}|${normalizeSearchText(odd.name)}`;
           if (host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) continue;
+
+          const visibleButton = findVisibleStatistikaButton(market.uuid, odd);
+          if (visibleButton) {
+            if (!visibleButton.classList.contains("is-added")) {
+              visibleButton.click();
+            }
+            continue;
+          }
+
           const btn = document.createElement("button");
           btn.className = "add-odd-button add-odd-button--inline";
           btn.dataset.specKey = specKey;
@@ -936,6 +995,15 @@ export function addDefaultStatistikaMarkets() {
       const best = matches.reduce((b, m) => _balanceScore(m) < _balanceScore(b) ? m : b);
       const specKey = specNorm;
       if (host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) continue;
+
+      const visibleButton = findVisibleStatistikaButton(best.uuid);
+      if (visibleButton) {
+        if (!visibleButton.classList.contains("is-added")) {
+          visibleButton.click();
+        }
+        continue;
+      }
+
       const btn = document.createElement("button");
       btn.className = "add-odd-button";
       btn.dataset.specKey = specKey;
