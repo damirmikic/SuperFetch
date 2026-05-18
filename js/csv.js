@@ -31,6 +31,31 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
   const marketName = String(market.marketName).trim();
   if (!marketName) return "";
 
+  const marketNorm = normalizeSearchText(marketName);
+  const isSpecialYesNo = (marketNorm.includes("oba tima") || marketNorm.includes("svaki tim"))
+    && marketNorm.includes("vise od")
+    && (marketNorm.includes("karton") || marketNorm.includes("sutev") && marketNorm.includes("okvir") || marketNorm.includes("korner"));
+
+  if (isSpecialYesNo) {
+    const selectedOdd = market.odds.find((odd) => /\b(da|yes)\b/i.test(String(odd.name))) || market.odds[0];
+    const lineMatch = selectedOdd && String(selectedOdd.name).match(/(?:više od|vise od|over)\s*(\d+(?:[.,]\d+)?)/i);
+    const boundaryLabel = lineMatch ? lineMatch[1].replace(",", ".") : "";
+
+    let formattedMarketName = toAsciiMarketName(marketName)
+      .replace(/\s*[-–]\s*(da|yes)\s*$/i, "")
+      .trim();
+
+    if (boundaryLabel) {
+      formattedMarketName = formattedMarketName.replace(/\bX\b/, boundaryLabel);
+    }
+
+    const answer = selectedOdd && /\b(da|yes)\b/i.test(String(selectedOdd.name))
+      ? "DA"
+      : toAsciiMarketName(String(selectedOdd?.name || "DA").trim());
+
+    return formatCsvRow([date, time, "", formattedMarketName, answer, formatPrice(selectedOdd?.price), "", "", "", "", "", "", ""]);
+  }
+
   let line = "";
   let underPrice = "";
   let overPrice = "";
