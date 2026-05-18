@@ -63,8 +63,9 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
 export function buildSpecijalRow({ event, marketName, odd }) {
   const { date, time } = formatEventDateTime(event.matchDate);
   const market = toAsciiMarketName(String(marketName).trim());
-  const answer = toAsciiMarketName(String(odd.name).trim());
-  if (!market || !answer) return "";
+  const rawAnswer = toAsciiMarketName(String(odd.name).trim());
+  const answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
+  if (!market) return "";
   return formatCsvRow([date, time, "", market, answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
 }
 
