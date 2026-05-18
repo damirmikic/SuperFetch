@@ -521,6 +521,7 @@ function createPlayerGroupCardsByTeam(markets, team, search = "") {
   for (const market of markets) {
     for (const odd of market.odds) {
       if (!odd.playerName || odd.playerTeam !== team) continue;
+      if (Number.isFinite(odd.price) && (odd.price > 50 || odd.price < 1.01)) continue;
       if (Number.isFinite(odd.price)) {
         if (!Number.isNaN(minPrice) && odd.price < minPrice) continue;
         if (!Number.isNaN(maxPrice) && odd.price > maxPrice) continue;
