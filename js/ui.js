@@ -180,10 +180,14 @@ export function resetMarkets() {
   setKickoffTime(null);
   resetCsvOutput("Choose an event first");
   elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
+  _resetDefaultHost();
+  const dodajBtn = document.querySelector("#dodaj-default-button");
+  if (dodajBtn) dodajBtn.disabled = true;
 }
 
 
 export function renderMarkets(markets) {
+  _resetDefaultHost();
   currentMarkets = markets;
   marketSearch = "";
   document.querySelector("#market-search").value = "";
@@ -191,6 +195,9 @@ export function renderMarkets(markets) {
   elements.marketsStatus.textContent = markets.length
     ? `${markets.length} markets loaded`
     : "No markets for selected event";
+
+  const dodajBtn = document.querySelector("#dodaj-default-button");
+  if (dodajBtn) dodajBtn.disabled = !markets.length;
 
   if (!markets.length) {
     resetCsvOutput("No markets for CSV");
@@ -684,12 +691,13 @@ function createMarketCard(market) {
   const oddsGrid = document.createElement("div");
   const isCombo = market.marketName.includes(";");
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
+  const isSplitStatistika = isStatistika && market.odds.length >= 3;
 
   card.className = isCombo ? "market-card market-card--combo" : "market-card";
   oddsGrid.className = "odds-grid";
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isCombo ? market.marketName : null)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", (isCombo || isSplitStatistika) ? market.marketName : null)));
 
-  if (isStatistika) {
+  if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
     const title = document.createElement("h3");
     const addBtn = document.createElement("button");
@@ -766,4 +774,109 @@ function createEmptyState(text, icon = "📋") {
   textEl.textContent = text;
   empty.append(iconEl, textEl);
   return empty;
+}
+
+// ── Default statistika markets ────────────────────────────────────────────────
+
+const DEFAULT_MARKET_BASES = [
+  "1. poluvreme - ukupno kornera",
+  "1. poluvreme - ukupno kornera {home}",
+  "1. poluvreme - ukupno kornera {away}",
+  "1. poluvreme - ukupno kartona",
+  "Ukupno kornera",
+  "Ukupno kornera {home}",
+  "Ukupno kornera {away}",
+  "Korneri raspon {home}",
+  "Korneri raspon {away}",
+  "Ukupno kartona",
+  "Ukupno kartona {home}",
+  "Ukupno kartona {away}",
+  "Ukupno crvenih kartona",
+  "Ukupno šuteva u okvir gola",
+  "{home} ukupno šuteva u okvir gola",
+  "{away} ukupno šuteva u okvir gola",
+  "Ukupno faulova",
+  "Ukupno ofsajda",
+  "Ukupno šuteva",
+  "Ukupno šuteva {home}",
+  "Ukupno šuteva {away}",
+];
+
+let _defaultHost = null;
+
+function _resetDefaultHost() {
+  if (_defaultHost) _defaultHost.replaceChildren();
+}
+
+function _getDefaultHost() {
+  if (!_defaultHost) {
+    _defaultHost = document.createElement("div");
+    _defaultHost.id = "default-btn-host";
+    _defaultHost.style.display = "none";
+    document.body.appendChild(_defaultHost);
+  }
+  return _defaultHost;
+}
+
+function _balanceScore(market) {
+  let under = null, over = null;
+  for (const odd of market.odds) {
+    const n = normalizeSearchText(odd.name);
+    if (n.includes("manje") || n.includes("under")) under = odd.price;
+    else if (n.includes("vise") || n.includes("over")) over = odd.price;
+  }
+  return (under != null && over != null) ? Math.abs(under - over) : Infinity;
+}
+
+export function addDefaultStatistikaMarkets() {
+  if (!currentEvent || !currentMarkets.length) return;
+
+  const home = currentEvent.homeTeam || "";
+  const away = currentEvent.awayTeam || "";
+  const host = _getDefaultHost();
+
+  // Remove stale non-added buttons from previous partial runs
+  for (const btn of Array.from(host.children)) {
+    if (!btn.classList.contains("is-added")) btn.remove();
+  }
+
+  for (const base of DEFAULT_MARKET_BASES) {
+    if (base.includes("{home}") && !home) continue;
+    if (base.includes("{away}") && !away) continue;
+
+    const resolved = base.replace("{home}", home).replace("{away}", away);
+    const specNorm = normalizeSearchText(resolved);
+
+    const matches = currentMarkets.filter((m) => normalizeSearchText(m.marketName) === specNorm);
+    if (!matches.length) continue;
+
+    const isSplit = matches[0].odds.length >= 3;
+
+    if (isSplit) {
+      for (const market of matches) {
+        for (const odd of market.odds) {
+          const specKey = `${specNorm}|${normalizeSearchText(odd.name)}`;
+          if (host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) continue;
+          const btn = document.createElement("button");
+          btn.className = "add-odd-button add-odd-button--inline";
+          btn.dataset.specKey = specKey;
+          host.appendChild(btn);
+          document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
+            detail: { marketName: market.marketName, odd, button: btn }
+          }));
+        }
+      }
+    } else {
+      const best = matches.reduce((b, m) => _balanceScore(m) < _balanceScore(b) ? m : b);
+      const specKey = specNorm;
+      if (host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) continue;
+      const btn = document.createElement("button");
+      btn.className = "add-odd-button";
+      btn.dataset.specKey = specKey;
+      host.appendChild(btn);
+      document.dispatchEvent(new CustomEvent("add-statistika-to-csv", {
+        detail: { market: best, button: btn }
+      }));
+    }
+  }
 }

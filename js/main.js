@@ -21,7 +21,8 @@ import {
   setMarketsError,
   setMarketsLoading,
   setError,
-  setLoading
+  setLoading,
+  addDefaultStatistikaMarkets
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -102,6 +103,7 @@ eventSelect.addEventListener("change", loadMarketsForSelectedEvent);
 refreshButton.addEventListener("click", loadCompetitions);
 downloadCsvButton.addEventListener("click", downloadCsv);
 clearCsvButton.addEventListener("click", clearCsv);
+document.querySelector("#dodaj-default-button").addEventListener("click", addDefaultStatistikaMarkets);
 
 document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button } }) => {
   const event = getSelectedEvent();

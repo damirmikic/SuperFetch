@@ -48,13 +48,11 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
     }
   }
 
-  let domacin = marketName;
-  let gost = "";
   const dashIdx = marketName.indexOf(" - ");
-  if (dashIdx !== -1) {
-    domacin = marketName.slice(0, dashIdx).trim();
-    gost = marketName.slice(dashIdx + 3).trim();
-  }
+  const domacin = dashIdx !== -1
+    ? toAsciiMarketName(marketName.slice(0, dashIdx).trim())
+    : toAsciiMarketName(marketName);
+  const gost = dashIdx !== -1 ? toAsciiMarketName(marketName.slice(dashIdx + 3).trim()) : "";
 
   return formatCsvRow([date, time, "", domacin, gost, "", "", "", line, underPrice, overPrice, "", ""]);
 }
@@ -64,8 +62,8 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
  */
 export function buildSpecijalRow({ event, marketName, odd }) {
   const { date, time } = formatEventDateTime(event.matchDate);
-  const market = String(marketName).trim();
-  const answer = String(odd.name).trim();
+  const market = toAsciiMarketName(String(marketName).trim());
+  const answer = toAsciiMarketName(String(odd.name).trim());
   if (!market || !answer) return "";
   return formatCsvRow([date, time, "", market, answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
 }
