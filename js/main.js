@@ -24,7 +24,7 @@ import {
   setLoading
 } from "./ui.js";
 
-const { select, eventSelect, refreshButton, downloadCsvButton } = getElements();
+const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
 let eventsRequestId = 0;
 let marketsRequestId = 0;
 
@@ -101,6 +101,7 @@ select.addEventListener("change", loadEventsForSelectedCompetition);
 eventSelect.addEventListener("change", loadMarketsForSelectedEvent);
 refreshButton.addEventListener("click", loadCompetitions);
 downloadCsvButton.addEventListener("click", downloadCsv);
+clearCsvButton.addEventListener("click", clearCsv);
 
 document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button } }) => {
   const event = getSelectedEvent();
@@ -328,6 +329,20 @@ document.querySelectorAll('input[name="margin-dir"]').forEach((r) => r.addEventL
 loadCompetitions();
 initMarketTabs();
 
+
+function clearCsv() {
+  for (const btn of document.querySelectorAll(".add-odd-button.is-added")) {
+    btn.classList.remove("is-added");
+    btn.textContent = "+";
+    btn.title = btn.closest(".combo-odd-wrapper") ? "Add to CSV as Specijali" : "Add to CSV";
+    delete btn.dataset.csvRow;
+    delete btn.dataset.originalPrice;
+    delete btn.dataset.originalPriceU;
+    delete btn.dataset.originalPriceO;
+  }
+  const event = getSelectedEvent();
+  renderCsvOutput("", makeCsvFilename(event, null), 0);
+}
 
 function downloadCsv() {
   const csv = getCsvOutput();

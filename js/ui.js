@@ -15,6 +15,7 @@ const elements = {
   select: document.querySelector("#competition-select"),
   eventSelect: document.querySelector("#event-select"),
   downloadCsvButton: document.querySelector("#download-csv-button"),
+  clearCsvButton: document.querySelector("#clear-csv-button"),
   csvOutput: document.querySelector("#csv-output"),
   csvPreviewPanel: document.querySelector("#csv-preview-panel"),
   csvPreviewContent: document.querySelector("#csv-preview-content"),
@@ -184,6 +185,7 @@ export function resetMarkets() {
 
 export function renderMarkets(markets) {
   currentMarkets = markets;
+  defaultMarketsApplied = { home: false, away: false };
   marketSearch = "";
   document.querySelector("#market-search").value = "";
   elements.marketsStatus.classList.remove("is-error");
@@ -206,6 +208,7 @@ export function renderMarkets(markets) {
 export function renderCsvOutput(csv, filename, rowCount) {
   elements.csvOutput.value = csv;
   elements.downloadCsvButton.disabled = !csv;
+  elements.clearCsvButton.disabled = !csv;
   elements.downloadCsvButton.dataset.filename = filename;
   elements.csvStatus.textContent = csv ? `${rowCount} CSV rows generated` : "No CSV rows generated";
   elements.csvPreviewPanel.hidden = !csv;
@@ -252,6 +255,10 @@ export function renderMarketsForCurrentFilter() {
       return;
     }
     elements.marketsList.replaceChildren(...cards);
+    if (!defaultMarketsApplied[side]) {
+      defaultMarketsApplied[side] = true;
+      autoAddDefaultPlayerMarkets(side);
+    }
     return;
   }
 
@@ -382,6 +389,7 @@ export function initMarketTabs() {
 
 function resetCsvOutput(label) {
   elements.downloadCsvButton.disabled = true;
+  elements.clearCsvButton.disabled = true;
   elements.downloadCsvButton.dataset.filename = "";
   elements.csvOutput.value = "";
   elements.csvStatus.textContent = label;
@@ -438,6 +446,24 @@ const PROP_WORDS = [
   "skokova"
 ];
 
+const DEFAULT_MARKET_CHECKS = [
+  (n) => n.includes("postize"),
+  (n) => n.includes("ukupan") && n.includes("asistencij"),
+  (n) => n.includes("gol") && n.includes("ili") && n.includes("asistir"),
+  (n) => n.includes("gol") && n.includes("asistir") && !n.includes("ili"),
+  (n) => n.includes("ukupan") && n.includes("sutev") && n.includes("okvir"),
+  (n) => n.includes("ukupno") && n.includes("sutev"),
+  (n) => n.includes("karton"),
+  (n) => n.includes("faul") && n.includes("nacinjenih"),
+];
+
+function isDefaultPlayerMarket(marketName) {
+  const n = normalizeSearchText(marketName);
+  return DEFAULT_MARKET_CHECKS.some((check) => check(n));
+}
+
+let defaultMarketsApplied = { home: false, away: false };
+
 
 function extractPlayerCandidates(text) {
   const candidates = [];
@@ -491,6 +517,24 @@ function resolvePlayerName(odd) {
   const namePart = String(odd.name).split(" - ")[0].trim();
   const m = namePart.match(/^([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*),\s*([\p{L}'.\-]+(?:\s[\p{L}'.\-]+)*)$/u);
   return m ? `${m[1]}, ${m[2]}` : null;
+}
+
+function autoAddDefaultPlayerMarkets(side) {
+  const csvValue = elements.csvOutput.value.trim();
+  if (csvValue) {
+    const csvLines = csvValue.split(/\r?\n/);
+    const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
+    const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+    const currentTeam = side === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
+    if (csvTeam && currentTeam && csvTeam !== currentTeam) return;
+  }
+
+  for (const btn of elements.marketsList.querySelectorAll(".add-odd-button")) {
+    if (btn.classList.contains("is-added")) continue;
+    if (!btn.dataset.marketName) continue;
+    if (!isDefaultPlayerMarket(btn.dataset.marketName)) continue;
+    btn.click();
+  }
 }
 
 function createPlayerGroupCardsByTeam(markets, team, search = "") {
@@ -570,6 +614,7 @@ function createPlayerOddRow(marketName, odd) {
   addButton.type = "button";
   addButton.title = "Add to CSV";
   addButton.textContent = "+";
+  addButton.dataset.marketName = marketName;
   price.className = "player-odd-price";
   market.textContent = marketName;
   name.textContent = odd.name;

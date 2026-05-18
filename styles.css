@@ -571,6 +571,16 @@ select:disabled {
   color: var(--text-2);
 }
 
+.action-btn--danger {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.action-btn--danger:hover:not(:disabled) {
+  background: #c0392b;
+  color: #fff;
+}
+
 .action-btn--secondary:hover {
   border-color: var(--accent);
   color: var(--accent);
