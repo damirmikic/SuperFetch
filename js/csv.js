@@ -154,6 +154,18 @@ export function removePlayerOddFromCsv(csv, rowToRemove) {
 }
 
 /**
+ * Replace one data row (exact string match) with another in a CSV string.
+ */
+export function replaceCsvRow(csv, oldRow, newRow) {
+  if (!oldRow || !csv) return csv;
+  const lines = csv.split(/\r?\n/);
+  const idx = lines.indexOf(oldRow);
+  if (idx === -1) return csv;
+  lines[idx] = newRow;
+  return lines.join("\r\n");
+}
+
+/**
  * Remove a single data row (exact string match) from a CSV string.
  */
 export function removeCsvRow(csv, rowToRemove) {

@@ -691,6 +691,47 @@ select:disabled {
   line-height: 1.4;
 }
 
+.market-reset-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: var(--r-sm);
+  transition: color var(--t), background var(--t);
+}
+.market-reset-btn:hover {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.market-original-name {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+.market-title--editable {
+  cursor: text;
+  border-radius: var(--r-sm);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  outline: none;
+  transition: background var(--t), box-shadow var(--t);
+}
+.market-title--editable:hover {
+  background: rgba(255,255,255,0.04);
+}
+.market-title--editable:focus {
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 0 0 1px var(--line-bright);
+}
+
 .field--spaced {
   margin-top: 16px;
 }

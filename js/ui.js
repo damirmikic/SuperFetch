@@ -1,3 +1,5 @@
+import { buildSpecijalRow } from "./csv.js";
+
 const datetimeDisplay = document.querySelector("#datetime-display");
 const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
   timeZone: "Europe/Belgrade",
@@ -695,7 +697,64 @@ function createMarketCard(market) {
 
   card.className = isCombo ? "market-card market-card--combo" : "market-card";
   oddsGrid.className = "odds-grid";
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", (isCombo || isSplitStatistika) ? market.marketName : null)));
+
+  if (isCombo) {
+    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", market.marketName), odd }));
+    oddsGrid.append(...comboEntries.map((e) => e.wrapper));
+
+    const titleArea = document.createElement("div");
+    const title = document.createElement("h3");
+    const resetBtn = document.createElement("button");
+    const originalNameEl = document.createElement("p");
+
+    titleArea.className = "market-title-area";
+    title.className = "market-title market-title--editable";
+    title.contentEditable = "true";
+    title.spellcheck = false;
+    title.textContent = market.marketName;
+    resetBtn.className = "market-reset-btn";
+    resetBtn.type = "button";
+    resetBtn.title = "Vrati originalni naziv";
+    resetBtn.textContent = "↺";
+    resetBtn.hidden = true;
+    originalNameEl.className = "market-original-name";
+    originalNameEl.textContent = market.marketName;
+    originalNameEl.hidden = true;
+
+    const applyEdit = (newName) => {
+      const changed = newName !== market.marketName;
+      resetBtn.hidden = !changed;
+      originalNameEl.hidden = !changed;
+      for (const { wrapper, odd } of comboEntries) {
+        const addBtn = wrapper.querySelector(".add-odd-button");
+        if (!addBtn) continue;
+        addBtn.dataset.currentMarketName = newName;
+        const lbl = wrapper.querySelector(".odd-label");
+        // Sync the chip label for single-outcome combos (label was originally the market name)
+        if (lbl?.dataset.usesMarketName === "true") lbl.textContent = newName;
+        if (addBtn.classList.contains("is-added")) {
+          const oldRow = addBtn.dataset.csvRow;
+          const origPrice = parseFloat(addBtn.dataset.originalPrice);
+          const price = Number.isFinite(origPrice) ? origPrice * getMarginMultiplier() : odd.price;
+          const oddForRow = lbl?.dataset.usesMarketName === "true"
+            ? { ...odd, name: newName, price }
+            : { ...odd, price };
+          const newRow = buildSpecijalRow({ event: currentEvent, marketName: newName, odd: oddForRow });
+          document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: addBtn } }));
+        }
+      }
+    };
+
+    title.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); title.blur(); } });
+    title.addEventListener("input", () => { applyEdit(title.textContent.trim() || market.marketName); });
+    resetBtn.addEventListener("click", () => { title.textContent = market.marketName; applyEdit(market.marketName); });
+
+    titleArea.append(title, resetBtn);
+    card.append(titleArea, originalNameEl, oddsGrid);
+    return card;
+  }
+
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null)));
 
   if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
@@ -744,17 +803,24 @@ function createOddButton(odd, contextText = "", comboMarketName = null) {
 
   if (!isCombo) return button;
 
+  // Mark the label so the card title editor knows to sync it
+  if (odd.name === comboMarketName) label.dataset.usesMarketName = "true";
+
   // Combo market: wrap the odd button with an add (+) button
   const addBtn = document.createElement("button");
   addBtn.className = "add-odd-button add-odd-button--inline";
   addBtn.type = "button";
   addBtn.title = "Add to CSV as Specijali";
   addBtn.textContent = "+";
+  addBtn.dataset.currentMarketName = comboMarketName;
   addBtn.addEventListener("click", () => {
     if (addBtn.classList.contains("is-added")) {
       document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
     } else {
-      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: comboMarketName, odd, button: addBtn } }));
+      const currentMarketName = addBtn.dataset.currentMarketName;
+      // For single-outcome combos the label mirrors the market name; keep "DA" in Gost even after an edit
+      const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName } : odd;
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: currentMarketName, odd: dispatchOdd, button: addBtn } }));
     }
   });
 

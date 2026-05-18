@@ -1,5 +1,5 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, replaceCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename } from "./csv.js";
 import {
   getSelectedCompetition,
   getSelectedEvent,
@@ -231,6 +231,15 @@ document.addEventListener("remove-specijal-from-csv", ({ detail: { button } }) =
   const event = getSelectedEvent();
   if (clearCsvIfNoSelections(event)) return;
   renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
+});
+
+document.addEventListener("update-csv-row", ({ detail: { oldRow, newRow, button } }) => {
+  if (!oldRow || !newRow || oldRow === newRow) return;
+  const existing = getCsvOutput();
+  const newCsv = replaceCsvRow(existing, oldRow, newRow);
+  button.dataset.csvRow = newRow;
+  const event = getSelectedEvent();
+  renderCsvOutput(newCsv, makeCsvFilename(event, getPlayerTeamFromCsv(newCsv)), countCsvRows(newCsv));
 });
 
 document.addEventListener("add-statistika-to-csv", ({ detail: { market, button } }) => {
