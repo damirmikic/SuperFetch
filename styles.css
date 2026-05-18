@@ -812,12 +812,19 @@ select:disabled {
   grid-template-columns: 1fr;
 }
 
+.player-card-header-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .player-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   color: inherit;
@@ -825,6 +832,35 @@ select:disabled {
   cursor: pointer;
   padding: 0;
   text-align: left;
+}
+
+.player-select-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-bright);
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--t), color var(--t), background var(--t);
+}
+
+.player-select-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.player-select-btn.is-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
 }
 
 .player-card-header-text {

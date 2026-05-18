@@ -331,6 +331,11 @@ initMarketTabs();
 
 
 function clearCsv() {
+  for (const btn of document.querySelectorAll(".player-select-btn.is-selected")) {
+    btn.classList.remove("is-selected");
+    btn.textContent = "+";
+    btn.title = "Add default markets to CSV";
+  }
   for (const btn of document.querySelectorAll(".add-odd-button.is-added")) {
     btn.classList.remove("is-added");
     btn.textContent = "+";

@@ -185,7 +185,6 @@ export function resetMarkets() {
 
 export function renderMarkets(markets) {
   currentMarkets = markets;
-  defaultMarketsApplied = { home: false, away: false };
   marketSearch = "";
   document.querySelector("#market-search").value = "";
   elements.marketsStatus.classList.remove("is-error");
@@ -255,10 +254,6 @@ export function renderMarketsForCurrentFilter() {
       return;
     }
     elements.marketsList.replaceChildren(...cards);
-    if (!defaultMarketsApplied[side]) {
-      defaultMarketsApplied[side] = true;
-      autoAddDefaultPlayerMarkets(side);
-    }
     return;
   }
 
@@ -447,12 +442,12 @@ const PROP_WORDS = [
 ];
 
 const DEFAULT_MARKET_CHECKS = [
-  (n) => n.includes("postize"),
+  (n) => n.includes("postize") && !n.includes("levom") && !n.includes("desnom") && !n.includes("1."),
   (n) => n.includes("ukupan") && n.includes("asistencij"),
   (n) => n.includes("gol") && n.includes("ili") && n.includes("asistir"),
   (n) => n.includes("gol") && n.includes("asistir") && !n.includes("ili"),
-  (n) => n.includes("ukupan") && n.includes("sutev") && n.includes("okvir"),
-  (n) => n.includes("ukupno") && n.includes("sutev"),
+  (n) => n.includes("ukupan") && n.includes("sutev") && n.includes("okvir") && !n.includes("levom") && !n.includes("desnom") && !n.includes("van"),
+  (n) => n.includes("ukupno") && n.includes("sutev") && !n.includes("van") && !n.includes("levom") && !n.includes("desnom"),
   (n) => n.includes("karton"),
   (n) => n.includes("faul") && n.includes("nacinjenih"),
 ];
@@ -461,8 +456,6 @@ function isDefaultPlayerMarket(marketName) {
   const n = normalizeSearchText(marketName);
   return DEFAULT_MARKET_CHECKS.some((check) => check(n));
 }
-
-let defaultMarketsApplied = { home: false, away: false };
 
 
 function extractPlayerCandidates(text) {
@@ -519,24 +512,6 @@ function resolvePlayerName(odd) {
   return m ? `${m[1]}, ${m[2]}` : null;
 }
 
-function autoAddDefaultPlayerMarkets(side) {
-  const csvValue = elements.csvOutput.value.trim();
-  if (csvValue) {
-    const csvLines = csvValue.split(/\r?\n/);
-    const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
-    const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
-    const currentTeam = side === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
-    if (csvTeam && currentTeam && csvTeam !== currentTeam) return;
-  }
-
-  for (const btn of elements.marketsList.querySelectorAll(".add-odd-button")) {
-    if (btn.classList.contains("is-added")) continue;
-    if (!btn.dataset.marketName) continue;
-    if (!isDefaultPlayerMarket(btn.dataset.marketName)) continue;
-    btn.click();
-  }
-}
-
 function createPlayerGroupCardsByTeam(markets, team, search = "") {
   const playerMap = new Map();
   const searchNorm = normalizeSearchText(search);
@@ -563,25 +538,32 @@ function createPlayerGroupCardsByTeam(markets, team, search = "") {
   return Array.from(playerMap.values())
     .filter(({ name }) => !searchNorm || normalizeSearchText(formatPlayerName(name)).includes(searchNorm))
     .sort((a, b) => formatPlayerName(a.name).localeCompare(formatPlayerName(b.name)))
-    .map(({ name, matches }) => createPlayerGroupCard(formatPlayerName(name), matches));
+    .map(({ name, matches }) => createPlayerGroupCard(formatPlayerName(name), matches, team));
 }
 
-function createPlayerGroupCard(query, matches) {
+function createPlayerGroupCard(query, matches, side) {
   const card = document.createElement("article");
+  const headerArea = document.createElement("div");
   const header = document.createElement("button");
   const headerText = document.createElement("div");
   const title = document.createElement("h3");
   const count = document.createElement("span");
   const chevron = document.createElement("span");
+  const selectBtn = document.createElement("button");
   const oddsList = document.createElement("div");
 
   card.className = "market-card player-results";
+  headerArea.className = "player-card-header-area";
   header.className = "player-card-header";
   header.type = "button";
   headerText.className = "player-card-header-text";
   title.className = "market-title";
   count.className = "player-card-count";
   chevron.className = "player-card-chevron";
+  selectBtn.className = "player-select-btn";
+  selectBtn.type = "button";
+  selectBtn.title = "Add default markets to CSV";
+  selectBtn.textContent = "+";
   oddsList.className = "player-odds-list";
 
   title.textContent = query;
@@ -591,9 +573,38 @@ function createPlayerGroupCard(query, matches) {
 
   header.addEventListener("click", () => card.classList.toggle("is-expanded"));
 
+  selectBtn.addEventListener("click", () => {
+    if (selectBtn.classList.contains("is-selected")) {
+      selectBtn.classList.remove("is-selected");
+      selectBtn.textContent = "+";
+      selectBtn.title = "Add default markets to CSV";
+      for (const btn of oddsList.querySelectorAll(".add-odd-button.is-added")) {
+        btn.click();
+      }
+    } else {
+      const csvValue = elements.csvOutput.value.trim();
+      if (csvValue) {
+        const csvLines = csvValue.split(/\r?\n/);
+        const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
+        const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+        const playerTeam = side === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
+        if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+      }
+      selectBtn.classList.add("is-selected");
+      selectBtn.textContent = "✓";
+      selectBtn.title = "Remove from CSV";
+      for (const btn of oddsList.querySelectorAll(".add-odd-button:not(.is-added)")) {
+        if (btn.dataset.marketName && isDefaultPlayerMarket(btn.dataset.marketName)) {
+          btn.click();
+        }
+      }
+    }
+  });
+
   headerText.append(title, count);
   header.append(headerText, chevron);
-  card.append(header, oddsList);
+  headerArea.append(header, selectBtn);
+  card.append(headerArea, oddsList);
 
   return card;
 }
