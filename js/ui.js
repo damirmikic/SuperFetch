@@ -699,7 +699,7 @@ function createMarketCard(market) {
   oddsGrid.className = "odds-grid";
 
   if (isCombo) {
-    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", market.marketName), odd }));
+    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", market.marketName, market.uuid), odd }));
     oddsGrid.append(...comboEntries.map((e) => e.wrapper));
 
     const titleArea = document.createElement("div");

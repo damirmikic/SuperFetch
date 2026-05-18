@@ -305,7 +305,14 @@ function getPlayerTeamFromCsv(csv) {
 
 function clearCsvIfNoSelections(event) {
   const hasAny = document.querySelector(".add-odd-button.is-added");
+  const csv = getCsvOutput();
+  const hasDataRows = csv.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+    return trimmed && !trimmed.startsWith("MATCH_NAME:") && !trimmed.startsWith("LEAGUE_NAME:");
+  });
+
   if (!hasAny) {
+    if (hasDataRows) return false;
     renderCsvOutput("", makeCsvFilename(event, null), 0);
     return true;
   }
