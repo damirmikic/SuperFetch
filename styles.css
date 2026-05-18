@@ -719,17 +719,20 @@ select:disabled {
 .market-title--editable {
   cursor: text;
   border-radius: var(--r-sm);
-  padding: 2px 4px;
-  margin: -2px -4px;
+  padding: 2px 6px;
+  margin: -2px -6px;
   outline: none;
-  transition: background var(--t), box-shadow var(--t);
+  border: 1px dashed var(--line-bright);
+  transition: background var(--t), border-color var(--t), box-shadow var(--t);
 }
 .market-title--editable:hover {
   background: rgba(255,255,255,0.04);
+  border-color: var(--text-3);
 }
 .market-title--editable:focus {
   background: rgba(255,255,255,0.06);
-  box-shadow: 0 0 0 1px var(--line-bright);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
 .field--spaced {
