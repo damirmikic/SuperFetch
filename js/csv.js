@@ -315,11 +315,22 @@ function toAsciiMarketName(value) {
     .replace(/\u0110/g, "D");
 }
 
-function mapOddToCsvMarket(market, odd) {
+export function mapOddToCsvMarket(market, odd) {
   const mkt = normalizeSearchText(market.marketName);
   const name = toAsciiMarketName(stripPlayerPrefix(market.marketName));
   const answer = extractLineOrNull(odd.name) ?? extractLineOrNull(odd.specialBetValue ?? "") ?? "DA";
 
+  // Basketball player markets
+  if (mkt.includes("poen") && mkt.includes("asistencij") && mkt.includes("skok")) return { market: "poeni+skokovi+asistencije", answer };
+  if (mkt.includes("poen") && mkt.includes("asistencij")) return { market: "poeni+asistencije", answer };
+  if (mkt.includes("poen") && mkt.includes("skok")) return { market: "poeni+skokovi", answer };
+  if (mkt.includes("ukupno poena igraca")) return { market: "poeni", answer };
+  if (mkt.includes("ukupno asistencija igraca")) return { market: "asistencije", answer };
+  if (mkt.includes("ukupno skokova igraca")) return { market: "skokovi", answer };
+  if (mkt.includes("pogodaka za 3 poena") || mkt.includes("3 poena igraca")) return { market: "trojke", answer };
+  if (mkt.includes("najbolji strelac")) return { market: "najbolji strelac", answer };
+
+  // Football player markets
   if (mkt.includes("2 ili vise")) return { market: name, answer };
   if (mkt.includes("postize") && mkt.includes("poluvrem")) return { market: name, answer };
   if (mkt.includes("postize") && mkt.includes("glav")) return { market: name, answer };
@@ -344,6 +355,15 @@ function mapOddToCsvMarket(market, odd) {
 function sortPlayerRows(rows) {
   const priority = (marketName) => {
     const n = normalizeSearchText(marketName);
+    if (n === "poeni") return 20;
+    if (n === "skokovi") return 21;
+    if (n === "asistencije") return 22;
+    if (n === "trojke") return 23;
+    if (n === "poeni+asistencije") return 24;
+    if (n === "poeni+skokovi") return 25;
+    if (n === "poeni+skokovi+asistencije") return 26;
+    if (n === "najbolji strelac") return 27;
+
     if (n.includes("postize") && n.includes("2")) return 1;
     if (n.includes("postize") && n.includes("glav")) return 2;
     if (n.includes("postize") && n.includes("poluvrem")) return 3;
@@ -407,11 +427,22 @@ function getPlayerTeamName(playerName, markets, event) {
   return event.awayTeam || event.homeTeam || event.matchName;
 }
 
-function extractLineOrNull(text) {
+export function extractLineOrNull(text) {
   const plus = String(text).match(/(\d+(?:[.,]\d+)?)\s*\+/);
   if (plus) return `${plus[1].replace(",", ".")}+`;
+  
   const over = String(text).match(/(?:više od|vise od|over)\s*(\d+(?:[.,]\d+)?)/i);
-  if (over) return `${Number(over[1].replace(",", ".")) + 0.5}+`;
+  if (over) {
+    const val = parseFloat(over[1].replace(",", "."));
+    return `${Math.floor(val) + 1}+`;
+  }
+  
+  const under = String(text).match(/(?:manje od|under)\s*(\d+(?:[.,]\d+)?)/i);
+  if (under) {
+    const val = parseFloat(under[1].replace(",", "."));
+    return `${Math.floor(val)}-`;
+  }
+  
   return null;
 }
 

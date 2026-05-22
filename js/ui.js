@@ -39,9 +39,14 @@ let optionIndex = new Map();
 let eventIndex = new Map();
 let currentMarkets = [];
 let currentEvent = null;
-/** @type {"all"|"standard"|"statistika"|"specijali"|"home-players"|"away-players"} */
+/** @type {"all"|"standard"|"statistika"|"specijali"|"home-players"|"away-players"|"players"} */
 let activeMarketTab = "all";
 let marketSearch = "";
+let currentSportId = 5; // Default is soccer (5)
+
+export function setSportId(sportId) {
+  currentSportId = sportId;
+}
 
 export function getElements() {
   return elements;
@@ -207,8 +212,10 @@ export function renderMarkets(markets) {
     return;
   }
 
-  document.querySelector('[data-tab="home-players"]').textContent = currentEvent?.homeTeam || "Dom. igrači";
-  document.querySelector('[data-tab="away-players"]').textContent = currentEvent?.awayTeam || "Gost. igrači";
+  const homeTab = document.querySelector('[data-tab="home-players"]');
+  const awayTab = document.querySelector('[data-tab="away-players"]');
+  if (homeTab) homeTab.textContent = currentEvent?.homeTeam || "Dom. igrači";
+  if (awayTab) awayTab.textContent = currentEvent?.awayTeam || "Gost. igrači";
   elements.csvStatus.textContent = "Use + buttons to add markets";
   renderMarketsForCurrentFilter();
 }
@@ -258,6 +265,16 @@ export function renderMarketsForCurrentFilter() {
   if (activeMarketTab === "home-players" || activeMarketTab === "away-players") {
     const side = activeMarketTab === "home-players" ? "home" : "away";
     const cards = createPlayerGroupCardsByTeam(tabFiltered, side, marketSearch);
+    if (!cards.length) {
+      elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
+      return;
+    }
+    elements.marketsList.replaceChildren(...cards);
+    return;
+  }
+
+  if (activeMarketTab === "players") {
+    const cards = createPlayerGroupCardsBasketball(tabFiltered, marketSearch);
     if (!cards.length) {
       elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
       return;
@@ -345,8 +362,21 @@ function filterMarketsByTab(markets, tab) {
     return applyOddsRangeFilter(nonCombo.filter((m) => m.odds.some((o) => o.playerName && o.playerTeam === "away")));
   }
 
+  if (tab === "players") {
+    return applyOddsRangeFilter(nonCombo.filter((m) => m.odds.some((o) => o.playerName)));
+  }
+
   return applyOddsRangeFilter(markets);
 }
+
+const BASKETBALL_STATISTIKA_KEYWORDS = [
+  "asistencija", "asistencije",
+  "skokova", "skokovi", "skok",
+  "izgubljenih lopti", "izgubljene lopte",
+  "ukradenih lopti", "ukradene lopte",
+  "slobodnih bacanja", "slobodna bacanja",
+  "pogodaka za 3 poena", "postignutih 3 poena", "3 poena"
+];
 
 /**
  * Returns true if the market name matches a team-level statistika keyword.
@@ -356,7 +386,10 @@ function filterMarketsByTab(markets, tab) {
 function isStatistikaMarket(marketName) {
   const norm = normalizeSearchText(marketName);
   if (norm.includes("igrac")) return false;
-  return STATISTIKA_KEYWORDS.some((kw) => norm.includes(normalizeSearchText(kw)));
+  const keywords = currentSportId === 4
+    ? BASKETBALL_STATISTIKA_KEYWORDS
+    : STATISTIKA_KEYWORDS;
+  return keywords.some((kw) => norm.includes(normalizeSearchText(kw)));
 }
 
 /** Initialize tab-switching click listeners. Call once on startup. */
@@ -462,8 +495,16 @@ const DEFAULT_MARKET_CHECKS = [
 ];
 
 function isDefaultPlayerMarket(marketName) {
+  if (currentSportId === 4) {
+    return isDefaultPlayerMarketBasketball(marketName);
+  }
   const n = normalizeSearchText(marketName);
   return DEFAULT_MARKET_CHECKS.some((check) => check(n));
+}
+
+function isDefaultPlayerMarketBasketball(marketName) {
+  const n = normalizeSearchText(marketName);
+  return n.includes("poena") || n.includes("asistenc") || n.includes("skok") || n.includes("trojk") || n.includes("3 poen");
 }
 
 
@@ -866,9 +907,18 @@ const DEFAULT_MARKET_BASES = [
   "{away} ukupno šuteva u okvir gola",
   "Ukupno faulova",
   "Ukupno ofsajda",
-  "Ukupno šuteva",
-  "Ukupno šuteva {home}",
-  "Ukupno šuteva {away}",
+];
+
+const BASKETBALL_DEFAULT_MARKET_BASES = [
+  "Ukupno asistencija (uklj. produžetke)",
+  "Ukupno skokova (uklj. produžetke)",
+  "Ukupno postignutih 3 poena (uklj. produžetke)",
+  "{home} - Ukupno asistencija (uklj. produžetke)",
+  "{away} - Ukupno asistencija (uklj. produžetke)",
+  "Ukupno skokova {home} (uklj. produžetke)",
+  "Ukupno skokova {away} (uklj. produžetke)",
+  "{home} - Ukupno pogodaka za 3 poena (uklj. produžetke)",
+  "{away} - Ukupno pogodaka za 3 poena (uklj. produžetke)"
 ];
 
 let _defaultHost = null;
@@ -956,7 +1006,9 @@ export function addDefaultStatistikaMarkets() {
     if (!btn.classList.contains("is-added")) btn.remove();
   }
 
-  for (const base of DEFAULT_MARKET_BASES) {
+  const bases = currentSportId === 4 ? BASKETBALL_DEFAULT_MARKET_BASES : DEFAULT_MARKET_BASES;
+
+  for (const base of bases) {
     if (base.includes("{home}") && !home) continue;
     if (base.includes("{away}") && !away) continue;
 
@@ -1013,4 +1065,181 @@ export function addDefaultStatistikaMarkets() {
       }));
     }
   }
+}
+
+// ── Basketball rosters and player team guessing ────────────────────────────────
+
+const BASKETBALL_ROSTERS = {
+  "olympiacos": [
+    "fournier", "milutinov", "papanikolaou", "dorsey", "vezenkov", "walkup",
+    "williams-goss", "vildoza", "wright", "peters", "mckissic", "fall", "mitrou-long", "larentzakis"
+  ],
+  "fenerbahce": [
+    "baldwin", "biberovic", "birch", "colson", "hall", "melli", "guduric",
+    "hayes-davis", "zagars", "marjanovic", "sanli", "wilbekin", "mays", "pierre", "gazi", "mahmutoglu", "birsen", "sestina"
+  ],
+  "zvezda": [
+    "teodosic", "nedovic", "mitrovic", "giedraitis", "bolomboy", "canaan",
+    "miller-mcintyre", "kalinic", "dos santos", "yago", "daum", "plavsic", "davidovac", "dobric", "lazic", "kenan"
+  ],
+  "partizan": [
+    "ntilikina", "lundberg", "bonga", "davies", "brown", "washington",
+    "marinkovic", "nakic", "pokusevski", "koprivica", "lakic", "carlik", "tyrique"
+  ]
+};
+
+function guessBasketballPlayerTeam(playerName, homeTeam, awayTeam) {
+  const normName = normalizeSearchText(playerName);
+  const normHome = normalizeSearchText(homeTeam);
+  const normAway = normalizeSearchText(awayTeam);
+
+  for (const [teamKey, players] of Object.entries(BASKETBALL_ROSTERS)) {
+    for (const p of players) {
+      if (normName.includes(p)) {
+        if (normHome.includes(teamKey)) return "home";
+        if (normAway.includes(teamKey)) return "away";
+      }
+    }
+  }
+
+  if (normHome.split(/\s+/).some(word => word.length > 3 && normName.includes(word))) return "home";
+  if (normAway.split(/\s+/).some(word => word.length > 3 && normName.includes(word))) return "away";
+
+  return "home";
+}
+
+function createPlayerGroupCardsBasketball(markets, search = "") {
+  const playerMap = new Map();
+  const searchNorm = normalizeSearchText(search);
+  const minPrice = parseFloat(elements.specijalMin.value);
+  const maxPrice = parseFloat(elements.specijalMax.value);
+
+  for (const market of markets) {
+    for (const odd of market.odds) {
+      if (!odd.playerName) continue;
+      if (Number.isFinite(odd.price) && (odd.price > 50 || odd.price < 1.01)) continue;
+      if (Number.isFinite(odd.price)) {
+        if (!Number.isNaN(minPrice) && odd.price < minPrice) continue;
+        if (!Number.isNaN(maxPrice) && odd.price > maxPrice) continue;
+      }
+      const playerName = resolvePlayerName(odd);
+      if (!playerName) continue;
+      const norm = normalizeSearchText(playerName);
+      if (!playerMap.has(norm)) {
+        playerMap.set(norm, { name: playerName, matches: [] });
+      }
+      playerMap.get(norm).matches.push({ marketName: market.marketName, odd });
+    }
+  }
+
+  return Array.from(playerMap.values())
+    .filter(({ name }) => !searchNorm || normalizeSearchText(formatPlayerName(name)).includes(searchNorm))
+    .sort((a, b) => formatPlayerName(a.name).localeCompare(formatPlayerName(b.name)))
+    .map(({ name, matches }) => createPlayerGroupCardBasketball(formatPlayerName(name), matches));
+}
+
+function createPlayerGroupCardBasketball(query, matches) {
+  const card = document.createElement("article");
+  const headerArea = document.createElement("div");
+  const header = document.createElement("button");
+  const headerText = document.createElement("div");
+  const title = document.createElement("h3");
+  const count = document.createElement("span");
+  const chevron = document.createElement("span");
+  const selectBtn = document.createElement("button");
+  const oddsList = document.createElement("div");
+
+  card.className = "market-card player-results";
+  headerArea.className = "player-card-header-area";
+  header.className = "player-card-header";
+  header.type = "button";
+  headerText.className = "player-card-header-text";
+  title.className = "market-title";
+  count.className = "player-card-count";
+  chevron.className = "player-card-chevron";
+  selectBtn.className = "player-select-btn";
+  selectBtn.type = "button";
+  selectBtn.title = "Add default markets to CSV";
+  selectBtn.textContent = "+";
+  oddsList.className = "player-odds-list";
+
+  title.textContent = query;
+  count.textContent = `${matches.length} odds`;
+  chevron.textContent = "›";
+  oddsList.append(...matches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
+
+  header.addEventListener("click", () => card.classList.toggle("is-expanded"));
+
+  const teamSelect = document.createElement("select");
+  teamSelect.className = "player-team-select";
+  
+  const homeTeam = currentEvent?.homeTeam || "Domaćin";
+  const awayTeam = currentEvent?.awayTeam || "Gost";
+  
+  const optHome = new Option(homeTeam, "home");
+  const optAway = new Option(awayTeam, "away");
+  teamSelect.add(optHome);
+  teamSelect.add(optAway);
+
+  let initialSide = guessBasketballPlayerTeam(query, homeTeam, awayTeam);
+  teamSelect.value = initialSide;
+  
+  matches.forEach(({ odd }) => {
+    odd.playerTeam = initialSide;
+  });
+
+  let previousValue = initialSide;
+  teamSelect.addEventListener("change", () => {
+    const hasAdded = oddsList.querySelector(".add-odd-button.is-added");
+    if (hasAdded) {
+      alert("Ne možete promeniti tim igrača jer su njegove kvote već dodate u CSV.");
+      teamSelect.value = previousValue;
+      return;
+    }
+    const newSide = teamSelect.value;
+    previousValue = newSide;
+    matches.forEach(({ odd }) => {
+      odd.playerTeam = newSide;
+    });
+  });
+
+  teamSelect.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+
+  selectBtn.addEventListener("click", () => {
+    if (selectBtn.classList.contains("is-selected")) {
+      selectBtn.classList.remove("is-selected");
+      selectBtn.textContent = "+";
+      selectBtn.title = "Add default markets to CSV";
+      for (const btn of oddsList.querySelectorAll(".add-odd-button.is-added")) {
+        btn.click();
+      }
+    } else {
+      const csvValue = elements.csvOutput.value.trim();
+      const currentSide = teamSelect.value;
+      if (csvValue) {
+        const csvLines = csvValue.split(/\r?\n/);
+        const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
+        const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+        const playerTeam = currentSide === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
+        if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+      }
+      selectBtn.classList.add("is-selected");
+      selectBtn.textContent = "✓";
+      selectBtn.title = "Remove from CSV";
+      for (const btn of oddsList.querySelectorAll(".add-odd-button:not(.is-added)")) {
+        if (btn.dataset.marketName && isDefaultPlayerMarket(btn.dataset.marketName)) {
+          btn.click();
+        }
+      }
+    }
+  });
+
+  headerText.append(title, count);
+  header.append(headerText, chevron);
+  headerArea.append(header, teamSelect, selectBtn);
+  card.append(headerArea, oddsList);
+
+  return card;
 }

@@ -5,8 +5,8 @@ function endpoint(path) {
   return `${base}${path}`;
 }
 
-export async function fetchSoccerCompetitions() {
-  const response = await fetch(endpoint(`/sport/${SUPERBET_CONFIG.soccerSportId}/tournaments`), {
+export async function fetchCompetitions(sportId) {
+  const response = await fetch(endpoint(`/sport/${sportId}/tournaments`), {
     headers: {
       accept: "application/json, text/plain, */*"
     }
@@ -23,6 +23,14 @@ export async function fetchSoccerCompetitions() {
   }
 
   return normalizeCompetitionTree(payload.data ?? []);
+}
+
+export function fetchSoccerCompetitions() {
+  return fetchCompetitions(SUPERBET_CONFIG.soccerSportId);
+}
+
+export function fetchBasketballCompetitions() {
+  return fetchCompetitions(SUPERBET_CONFIG.basketballSportId);
 }
 
 export async function fetchPrematchEventsForCompetition(tournamentId, date = new Date()) {

@@ -8,5 +8,6 @@ export const SUPERBET_CONFIG = {
   statsVariant: "rssuperbetsport",
   locale: "sr-Latn-RS",
   soccerSportId: 5,
+  basketballSportId: 4,
   upcomingDays: 14
 };
