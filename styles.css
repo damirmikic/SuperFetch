@@ -1337,4 +1337,216 @@ select:disabled {
   color: var(--red);
 }
 
+/* ─────────────────────────────────────────
+   League Simulation Styles
+   ───────────────────────────────────────── */
+.simulation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.simulation-group-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.simulation-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.simulation-group-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 0;
+}
+
+.simulation-group-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.simulation-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .simulation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.simulation-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin: 0 0 10px;
+  letter-spacing: 0.05em;
+}
+
+.standings-table, .matches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.standings-table th, .standings-table td,
+.matches-table th, .matches-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.standings-table th, .matches-table th {
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.standings-table td {
+  font-weight: 500;
+}
+
+.standings-table tr:hover td,
+.matches-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.standings-team-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.standings-exp-pts {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.odds-value-display {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.matches-table td {
+  vertical-align: middle;
+}
+
+.match-row-teams {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.match-row-date {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.simulation-odds-input-group {
+  display: flex;
+  gap: 4px;
+}
+
+.sim-odds-input-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sim-odds-input-label {
+  font-size: 9px;
+  color: var(--text-3);
+  display: block;
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.sim-odds-input {
+  width: 50px;
+  height: 26px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--gold);
+  border-radius: var(--r-sm);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  outline: none;
+}
+
+.sim-odds-input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.sim-odds-input::-webkit-outer-spin-button,
+.sim-odds-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sim-odds-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.simulation-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  width: fit-content;
+}
+
+.sim-iterations-input {
+  width: 80px;
+  height: 26px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--gold);
+  border-radius: var(--r-sm);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+
+.sim-iterations-input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.sim-iterations-input::-webkit-outer-spin-button,
+.sim-iterations-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sim-iterations-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+
 

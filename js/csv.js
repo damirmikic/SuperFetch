@@ -507,3 +507,62 @@ function slugify(value) {
     .replace(/^_+|_+$/g, "")
     || "odds";
 }
+
+/**
+ * Builds a Specijal outright CSV block for a group market (Winner, Qualify, Last).
+ */
+export function buildGroupOutrightCsvBlock({ groupName, marketTitle, teams, oddsMap, oddsField, eventDate }) {
+  const { date, time } = formatEventDateTime(eventDate);
+  const rows = [
+    formatCsvRow([`MATCH_NAME:Specijal`]),
+    formatCsvRow([`LEAGUE_NAME:${marketTitle} ${toAsciiMarketName(groupName)}`])
+  ];
+
+  for (const team of teams) {
+    const price = oddsMap[team][oddsField];
+    rows.push(formatCsvRow([
+      date,
+      time,
+      "",
+      toAsciiMarketName(team),
+      "DA",
+      formatPrice(price),
+      "", "", "", "", "", "", ""
+    ]));
+  }
+
+  return rows.join("\r\n");
+}
+
+/**
+ * Builds Statistika CSV rows for the team points Over/Under markets in a group.
+ */
+export function buildGroupPointsCsvRows({ groupName, teams, oddsMap, eventDate }) {
+  const { date, time } = formatEventDateTime(eventDate);
+  const rows = [];
+
+  for (const team of teams) {
+    const o = oddsMap[team];
+    const domacin = `Ukupno bodova - ${toAsciiMarketName(team)}`;
+    const gost = toAsciiMarketName(groupName);
+
+    rows.push(formatCsvRow([
+      date,
+      time,
+      "",
+      domacin,
+      gost,
+      "",
+      "",
+      "",
+      formatPrice(o.line),
+      formatPrice(o.underOdds),
+      formatPrice(o.overOdds),
+      "",
+      ""
+    ]));
+  }
+
+  return rows.join("\r\n");
+}
+

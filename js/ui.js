@@ -1,4 +1,5 @@
-import { buildSpecijalRow } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS } from "./csv.js";
+import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
 const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
@@ -248,13 +249,18 @@ export function getMarginMultiplier() {
 
 export function refreshDisplayedPrices() {
   const m = getMarginMultiplier();
-  for (const el of document.querySelectorAll(".odd-price[data-original-price], .player-odd-price[data-original-price]")) {
+  for (const el of document.querySelectorAll(".odd-price[data-original-price], .player-odd-price[data-original-price], .odds-value-display[data-original-price]")) {
     const orig = parseFloat(el.dataset.originalPrice);
     if (Number.isFinite(orig)) el.textContent = (orig * m).toFixed(2);
   }
 }
 
 export function renderMarketsForCurrentFilter() {
+  if (activeMarketTab === "simulation") {
+    renderSimulationView();
+    return;
+  }
+
   if (!currentMarkets.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
     return;
@@ -1467,5 +1473,343 @@ export function renderEuroleagueStats(statsData, homeTeamName, awayTeamName) {
 
   // Initial render
   updateCards();
+}
+
+export let simulationOverrides = {};
+
+export function clearSimulationOverrides() {
+  simulationOverrides = {};
+}
+
+export function renderSimulationView() {
+  const events = Array.from(eventIndex.values());
+  const groups = detectGroups(events);
+
+  if (!groups || !groups.length) {
+    elements.marketsList.replaceChildren(createEmptyState("Nema pronađenih grupa za simulaciju u ovom takmičenju.", "🏟️"));
+    return;
+  }
+
+  const prevInput = document.querySelector("#sim-iterations-input");
+  let iterations = prevInput ? parseInt(prevInput.value, 10) : 10000;
+  if (isNaN(iterations) || iterations < 1000) {
+    iterations = 10000;
+  } else if (iterations > 500000) {
+    iterations = 500000;
+  }
+
+  const comp = getSelectedCompetition();
+  const compName = (comp ? comp.tournamentName : "").toLowerCase();
+  let bestThirdCount = 0;
+  if (compName.includes("world cup") || compName.includes("svetsko prvenstvo") || compName.includes("svetsko")) {
+    bestThirdCount = 8;
+  } else if (
+    (compName.includes("euro") || compName.includes("evropsko prvenstvo") || compName.includes("evro")) &&
+    !compName.includes("euroleague") && !compName.includes("evroliga")
+  ) {
+    bestThirdCount = 4;
+  }
+
+  let ruleBadge = "";
+  if (bestThirdCount === 8) {
+    ruleBadge = `<span style="background: rgba(220, 100, 0, 0.2); color: #ff9f43; border: 1px solid rgba(220, 100, 0, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: auto;">🏆 Prolaze: prva 2 + 8 najboljih 3.</span>`;
+  } else if (bestThirdCount === 4) {
+    ruleBadge = `<span style="background: rgba(0, 150, 255, 0.2); color: #54a0ff; border: 1px solid rgba(0, 150, 255, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: auto;">🇪🇺 Prolaze: prva 2 + 4 najboljih 3.</span>`;
+  } else {
+    ruleBadge = `<span style="background: rgba(255, 255, 255, 0.05); color: var(--text-3); border: 1px solid var(--line); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: normal; margin-left: auto;">Prolaze prva 2</span>`;
+  }
+
+  const container = document.createElement("div");
+  container.className = "simulation-container";
+
+  const controls = document.createElement("div");
+  controls.className = "simulation-controls";
+  controls.style.width = "100%";
+  controls.innerHTML = `
+    <span style="display: flex; align-items: center; gap: 8px;">
+      <span>⚙️</span>
+      <span>Broj simulacija (Monte Carlo):</span>
+    </span>
+    <input type="number" id="sim-iterations-input" class="sim-iterations-input" value="${iterations}" min="1000" max="500000" step="1000">
+    <button id="run-all-sims-btn" class="action-btn action-btn--primary" style="min-height: 26px; height: 26px; padding: 0 10px; font-size: 11px; display: flex; align-items: center; gap: 4px;">
+      <span class="btn-icon">🔄</span> Pokreni sve
+    </button>
+    ${ruleBadge}
+  `;
+  container.append(controls);
+
+  // Setup event listeners for simulation controls
+  const inputEl = controls.querySelector("#sim-iterations-input");
+  const runAllBtn = controls.querySelector("#run-all-sims-btn");
+
+  if (inputEl) {
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        renderSimulationView();
+      }
+    });
+    inputEl.addEventListener("change", () => {
+      renderSimulationView();
+    });
+  }
+
+  if (runAllBtn) {
+    runAllBtn.addEventListener("click", () => {
+      renderSimulationView();
+    });
+  }
+
+
+  // Run tournament-wide simulation to correctly rank 3rd-placed teams and calculate their qualification odds
+  const tournamentResults = runTournamentSimulation(groups, currentSportId, simulationOverrides, iterations, bestThirdCount);
+  const marginMultiplier = getMarginMultiplier();
+
+  groups.forEach((group) => {
+    // 1. Get results for the teams in this group from the tournament-wide simulation results
+    const results = {};
+    for (const team of group.teams) {
+      results[team] = tournamentResults[team];
+    }
+    const odds = calculateOddsForGroup(group, results, marginMultiplier);
+
+    // 2. Create card element
+    const card = document.createElement("div");
+    card.className = "simulation-group-card";
+
+    // 3. Header
+    const header = document.createElement("div");
+    header.className = "simulation-group-header";
+
+    const title = document.createElement("h3");
+    title.className = "simulation-group-name";
+    title.textContent = group.name;
+
+    const actions = document.createElement("div");
+    actions.className = "simulation-group-actions";
+
+    const simBtn = document.createElement("button");
+    simBtn.className = "action-btn action-btn--primary";
+    simBtn.innerHTML = `<span class="btn-icon">🔄</span> Pokreni simulaciju`;
+    simBtn.addEventListener("click", () => {
+      renderSimulationView();
+    });
+
+    const csvBtn = document.createElement("button");
+    csvBtn.className = "action-btn";
+    csvBtn.innerHTML = `<span class="btn-icon">📝</span> Dodaj Grupu u CSV`;
+    csvBtn.addEventListener("click", () => {
+      const earliestMatch = group.matches[0];
+      const eventDate = earliestMatch ? earliestMatch.matchDate : "";
+      
+      const winnerCsv = buildGroupOutrightCsvBlock({
+        groupName: group.name,
+        marketTitle: "Pobednik Grupe",
+        teams: group.teams,
+        oddsMap: odds,
+        oddsField: "winnerOdds",
+        eventDate
+      });
+      const qualifyCsv = buildGroupOutrightCsvBlock({
+        groupName: group.name,
+        marketTitle: "Prolazi Grupu",
+        teams: group.teams,
+        oddsMap: odds,
+        oddsField: "qualifyOdds",
+        eventDate
+      });
+      const lastCsv = buildGroupOutrightCsvBlock({
+        groupName: group.name,
+        marketTitle: "Zavrsava Poslednji Grupa",
+        teams: group.teams,
+        oddsMap: odds,
+        oddsField: "lastOdds",
+        eventDate
+      });
+      const pointsCsv = buildGroupPointsCsvRows({
+        groupName: group.name,
+        teams: group.teams,
+        oddsMap: odds,
+        eventDate
+      });
+
+      const blocks = [winnerCsv, qualifyCsv, lastCsv, pointsCsv].filter(Boolean);
+      const combinedBlock = blocks.join("\r\n");
+
+      const existing = getCsvOutput().trim();
+      let newCsv;
+      if (!existing) {
+        newCsv = `${CSV_COLUMNS.join(",")}\r\n${combinedBlock}`;
+      } else {
+        newCsv = `${existing}\r\n${combinedBlock}`;
+      }
+
+      const comp = getSelectedCompetition();
+      const subject = comp ? `${comp.tournamentName}_simulacija` : "simulacija";
+      const filename = `${subject.toLowerCase().replace(/[^a-z0-9]/g, "_")}_odds.csv`;
+
+      renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
+    });
+
+    actions.append(simBtn, csvBtn);
+    header.append(title, actions);
+    card.append(header);
+
+    // 4. Grid containing Standings and Matches
+    const grid = document.createElement("div");
+    grid.className = "simulation-grid";
+
+    // ─── LEFT COLUMN: Standings ───
+    const standingsCol = document.createElement("div");
+    const standingsTitle = document.createElement("h4");
+    standingsTitle.className = "simulation-section-title";
+    standingsTitle.textContent = "Tabela & Proporcije";
+    standingsCol.append(standingsTitle);
+
+    const standingsTable = document.createElement("table");
+    standingsTable.className = "standings-table";
+    standingsTable.innerHTML = `
+      <thead>
+        <tr>
+          <th>Tim</th>
+          <th>Proj Bod</th>
+          <th>Pobednik</th>
+          <th>Prolaz</th>
+          <th>Poslednji</th>
+          <th>Granica</th>
+          <th>Manje</th>
+          <th>Više</th>
+        </tr>
+      </thead>
+    `;
+
+    const standingsBody = document.createElement("tbody");
+    const sortedTeams = [...group.teams].sort((a, b) => results[b].expectedPoints - results[a].expectedPoints);
+
+    sortedTeams.forEach((team) => {
+      const o = odds[team];
+      const res = results[team];
+
+      const fairWinner = res.pWinner <= 0.0001 ? 999.00 : 1 / res.pWinner;
+      const fairQualify = res.pQualify <= 0.0001 ? 999.00 : 1 / res.pQualify;
+      const fairLast = res.pLast <= 0.0001 ? 999.00 : 1 / res.pLast;
+
+      let pUnder = 0;
+      let pOver = 0;
+      for (const [ptsStr, prob] of Object.entries(res.pointsDistribution)) {
+        if (Number(ptsStr) < o.line) pUnder += prob;
+        else pOver += prob;
+      }
+      const fairUnder = pUnder <= 0.0001 ? 999.00 : 1 / pUnder;
+      const fairOver = pOver <= 0.0001 ? 999.00 : 1 / pOver;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="standings-team-name">${team}</td>
+        <td class="standings-exp-pts">${res.expectedPoints.toFixed(2)}</td>
+        <td><span class="odds-value-display" data-original-price="${fairWinner}">${o.winnerOdds.toFixed(2)}</span></td>
+        <td><span class="odds-value-display" data-original-price="${fairQualify}">${o.qualifyOdds.toFixed(2)}</span></td>
+        <td><span class="odds-value-display" data-original-price="${fairLast}">${o.lastOdds.toFixed(2)}</span></td>
+        <td class="odds-value-display">${o.line.toFixed(1)}</td>
+        <td><span class="odds-value-display" data-original-price="${fairUnder}">${o.underOdds.toFixed(2)}</span></td>
+        <td><span class="odds-value-display" data-original-price="${fairOver}">${o.overOdds.toFixed(2)}</span></td>
+      `;
+      standingsBody.append(tr);
+    });
+    standingsTable.append(standingsBody);
+    standingsCol.append(standingsTable);
+
+    // ─── RIGHT COLUMN: Matches ───
+    const matchesCol = document.createElement("div");
+    const matchesTitle = document.createElement("h4");
+    matchesTitle.className = "simulation-section-title";
+    matchesTitle.textContent = "Utakmice & Kvota overrides";
+    matchesCol.append(matchesTitle);
+
+    const matchesTable = document.createElement("table");
+    matchesTable.className = "matches-table";
+    matchesTable.innerHTML = `
+      <thead>
+        <tr>
+          <th>Utakmica</th>
+          <th>Kvote</th>
+        </tr>
+      </thead>
+    `;
+
+    const matchesBody = document.createElement("tbody");
+    group.matches.forEach((match) => {
+      const tr = document.createElement("tr");
+
+      const tdMatch = document.createElement("td");
+      const teamsDiv = document.createElement("div");
+      teamsDiv.className = "match-row-teams";
+      teamsDiv.textContent = `${match.homeTeam} - ${match.awayTeam}`;
+      
+      const dateDiv = document.createElement("div");
+      dateDiv.className = "match-row-date";
+      const dateVal = match.matchDate ? new Date(match.matchDate.replace(" ", "T") + "Z") : null;
+      dateDiv.textContent = dateVal && !isNaN(dateVal.getTime()) ? datetimeFmt.format(dateVal) : (match.matchDate || "");
+
+      tdMatch.append(teamsDiv, dateDiv);
+
+      const tdOdds = document.createElement("td");
+      const currentOdds = simulationOverrides[match.eventId] || getEventWinnerOdds(match, currentSportId);
+
+      const oddsGroup = document.createElement("div");
+      oddsGroup.className = "simulation-odds-input-group";
+
+      const createInputContainer = (label, outcome, value) => {
+        const wrap = document.createElement("div");
+        wrap.className = "sim-odds-input-container";
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "sim-odds-input-label";
+        labelSpan.textContent = label;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.step = "0.01";
+        input.min = "1.01";
+        input.className = "sim-odds-input";
+        input.value = value.toFixed(2);
+        input.addEventListener("input", (e) => {
+          const val = parseFloat(e.target.value);
+          if (Number.isFinite(val) && val > 0) {
+            if (!simulationOverrides[match.eventId]) {
+              simulationOverrides[match.eventId] = Object.assign({}, getEventWinnerOdds(match, currentSportId));
+            }
+            simulationOverrides[match.eventId][outcome] = val;
+          }
+        });
+        wrap.append(labelSpan, input);
+        return wrap;
+      };
+
+      if (currentSportId === 4) { // Basketball (no draws)
+        oddsGroup.append(
+          createInputContainer("1", "home", currentOdds.home),
+          createInputContainer("2", "away", currentOdds.away)
+        );
+      } else { // Soccer
+        oddsGroup.append(
+          createInputContainer("1", "home", currentOdds.home),
+          createInputContainer("X", "draw", currentOdds.draw),
+          createInputContainer("2", "away", currentOdds.away)
+        );
+      }
+
+      tdOdds.append(oddsGroup);
+      tr.append(tdMatch, tdOdds);
+      matchesBody.append(tr);
+    });
+
+    matchesTable.append(matchesBody);
+    matchesCol.append(matchesTable);
+
+    grid.append(standingsCol, matchesCol);
+    card.append(grid);
+    container.append(card);
+  });
+
+  elements.marketsList.replaceChildren(container);
 }
 

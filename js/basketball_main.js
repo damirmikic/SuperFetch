@@ -24,7 +24,8 @@ import {
   setLoading,
   addDefaultStatistikaMarkets,
   setSportId,
-  renderEuroleagueStats
+  renderEuroleagueStats,
+  clearSimulationOverrides
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -47,6 +48,8 @@ async function loadCompetitions() {
 
 async function loadEventsForSelectedCompetition() {
   const competition = getSelectedCompetition();
+
+  clearSimulationOverrides();
 
   if (!competition) {
     resetEvents();
