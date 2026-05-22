@@ -1243,3 +1243,229 @@ function createPlayerGroupCardBasketball(query, matches) {
 
   return card;
 }
+
+function findMatchingTeam(superbetTeam, euroleagueTeams) {
+  if (!superbetTeam) return null;
+  
+  const normalize = (str) => {
+    return str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // remove diacritics
+      .replace(/[^a-z0-9\s]/g, "")      // remove non-alphanumeric except spaces
+      .trim();
+  };
+
+  const normSuperbet = normalize(superbetTeam);
+  if (!normSuperbet) return null;
+
+  // 1. Exact match on normalized names
+  for (const team of euroleagueTeams) {
+    const normEl = normalize(team.teamName);
+    if (normEl === normSuperbet) return team;
+  }
+  
+  // 2. Substring match
+  for (const team of euroleagueTeams) {
+    const normEl = normalize(team.teamName);
+    if (normEl.includes(normSuperbet) || normSuperbet.includes(normEl)) {
+      return team;
+    }
+  }
+
+  // 3. Word intersection
+  const superbetWords = normSuperbet.split(/\s+/).filter(w => w.length > 2);
+  for (const team of euroleagueTeams) {
+    const normEl = normalize(team.teamName);
+    const elWords = normEl.split(/\s+/).filter(w => w.length > 2);
+    const intersection = superbetWords.filter(w => elWords.includes(w));
+    if (intersection.length > 0) {
+      return team;
+    }
+  }
+
+  // 4. clubId matches
+  for (const team of euroleagueTeams) {
+    if (team.clubId) {
+      const normClubId = normalize(team.clubId.replace(/-/g, " "));
+      if (normClubId.includes(normSuperbet) || normSuperbet.includes(normClubId)) {
+        return team;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function renderEuroleagueStats(statsData, homeTeamName, awayTeamName) {
+  const container = document.querySelector("#euroleague-stats-container");
+  if (!container) return;
+
+  const teams = statsData.teams || [];
+  if (!teams.length) {
+    container.innerHTML = `<div class="empty-state">No Euroleague team stats available.</div>`;
+    return;
+  }
+
+  // Sort teams alphabetically by name
+  const sortedTeams = [...teams].sort((a, b) => a.teamName.localeCompare(b.teamName));
+
+  // Build options for dropdowns
+  const optionsHtml = sortedTeams.map(t => `<option value="${t.clubId}">${t.teamName}</option>`).join("");
+
+  // Determine matching home and away teams
+  const matchedHome = findMatchingTeam(homeTeamName, teams);
+  const matchedAway = findMatchingTeam(awayTeamName, teams);
+
+  // Set up container structure
+  container.innerHTML = `
+    <div class="euroleague-stats-header">
+      <span class="euroleague-stats-title">🏀 Evroliga — Statistika Timova</span>
+    </div>
+    <div class="euroleague-stats-selectors">
+      <div class="euroleague-select-wrap">
+        <span class="euroleague-select-label">Domaćin - Statistika</span>
+        <select id="euroleague-home-select" class="euroleague-team-select">${optionsHtml}</select>
+      </div>
+      <div class="euroleague-select-wrap">
+        <span class="euroleague-select-label">Gost - Statistika</span>
+        <select id="euroleague-away-select" class="euroleague-team-select">${optionsHtml}</select>
+      </div>
+    </div>
+    <div class="euroleague-stats-cards">
+      <div class="euroleague-stats-card" id="euroleague-home-card"></div>
+      <div class="euroleague-stats-card" id="euroleague-away-card"></div>
+    </div>
+  `;
+
+  const homeSelect = container.querySelector("#euroleague-home-select");
+  const awaySelect = container.querySelector("#euroleague-away-select");
+
+  // Pre-select matches
+  if (matchedHome) {
+    homeSelect.value = matchedHome.clubId;
+  } else if (teams.length > 0) {
+    homeSelect.value = teams[0].clubId;
+  }
+
+  if (matchedAway) {
+    awaySelect.value = matchedAway.clubId;
+  } else if (teams.length > 1) {
+    awaySelect.value = teams[1].clubId;
+  } else if (teams.length > 0) {
+    awaySelect.value = teams[0].clubId;
+  }
+
+  // Function to render card stats
+  const renderCard = (cardEl, team) => {
+    if (!team) {
+      cardEl.innerHTML = `<div class="empty-state">Izaberite tim</div>`;
+      return;
+    }
+
+    const g = team.games || 1;
+
+    // Calculations
+    const pointsFor = ((team.madeTwo * 2 + team.madeThree * 3 + team.madeFt) / g).toFixed(1);
+    const pointsAgainst = ((team.oppMadeTwo * 2 + team.oppMadeThree * 3 + team.oppMadeFt) / g).toFixed(1);
+    const ftMade = (team.madeFt / g).toFixed(1);
+    const twoMade = (team.madeTwo / g).toFixed(1);
+    const threeMade = (team.madeThree / g).toFixed(1);
+    const rebounds = ((team.defRebounds + team.offRebounds) / g).toFixed(1);
+    const assists = (team.assists / g).toFixed(1);
+    const turnovers = (team.turnovers / g).toFixed(1);
+
+    const oppFtMade = (team.oppMadeFt / g).toFixed(1);
+    const oppTwoMade = (team.oppMadeTwo / g).toFixed(1);
+    const oppThreeMade = (team.oppMadeThree / g).toFixed(1);
+    const oppRebounds = ((team.oppDefRebounds + team.oppOffRebounds) / g).toFixed(1);
+    const oppAssists = (team.oppAssists / g).toFixed(1);
+    const oppTurnovers = (team.oppTurnovers / g).toFixed(1);
+
+    cardEl.innerHTML = `
+      <h3 class="euroleague-card-team-name">${team.teamName}</h3>
+      
+      <div class="euroleague-card-section">
+        <div class="euroleague-section-title">Prosek Tima</div>
+        <div class="euroleague-section-grid">
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Poeni (Za)</span>
+            <span class="euroleague-stat-value is-points-for">${pointsFor}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Poeni (Protiv)</span>
+            <span class="euroleague-stat-value is-points-against">${pointsAgainst}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođena Sl. Bacanja</span>
+            <span class="euroleague-stat-value">${ftMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođene 2P</span>
+            <span class="euroleague-stat-value">${twoMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođene 3P</span>
+            <span class="euroleague-stat-value">${threeMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Skokovi</span>
+            <span class="euroleague-stat-value">${rebounds}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Asistencije</span>
+            <span class="euroleague-stat-value">${assists}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Izg. Lopte</span>
+            <span class="euroleague-stat-value">${turnovers}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="euroleague-card-section">
+        <div class="euroleague-section-title">Prosek Protivnika (protiv ovog tima)</div>
+        <div class="euroleague-section-grid">
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođena Sl. Bacanja</span>
+            <span class="euroleague-stat-value">${oppFtMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođene 2P</span>
+            <span class="euroleague-stat-value">${oppTwoMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Pogođene 3P</span>
+            <span class="euroleague-stat-value">${oppThreeMade}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Skokovi</span>
+            <span class="euroleague-stat-value">${oppRebounds}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Asistencije</span>
+            <span class="euroleague-stat-value">${oppAssists}</span>
+          </div>
+          <div class="euroleague-stat-item">
+            <span class="euroleague-stat-label">Izg. Lopte</span>
+            <span class="euroleague-stat-value">${oppTurnovers}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  const updateCards = () => {
+    const homeTeam = teams.find(t => t.clubId === homeSelect.value);
+    const awayTeam = teams.find(t => t.clubId === awaySelect.value);
+    renderCard(container.querySelector("#euroleague-home-card"), homeTeam);
+    renderCard(container.querySelector("#euroleague-away-card"), awayTeam);
+  };
+
+  homeSelect.addEventListener("change", updateCards);
+  awaySelect.addEventListener("change", updateCards);
+
+  // Initial render
+  updateCards();
+}
+

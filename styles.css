@@ -1191,3 +1191,150 @@ select:disabled {
   border-color: var(--accent);
 }
 
+/* ─────────────────────────────────────────
+   Euroleague Stats Widget (Sidebar layout)
+   ───────────────────────────────────────── */
+.euroleague-stats-container {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin: 16px 0;
+}
+
+.euroleague-stats-header {
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.euroleague-stats-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.euroleague-stats-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.euroleague-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.euroleague-select-label {
+  font-size: 10px;
+  color: var(--text-2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.euroleague-team-select {
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--t);
+  width: 100%;
+}
+
+.euroleague-team-select:focus {
+  border-color: var(--accent);
+}
+
+.euroleague-stats-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.euroleague-stats-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.euroleague-card-team-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.euroleague-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.euroleague-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: center;
+  padding-bottom: 2px;
+  border-bottom: 1px dashed var(--line);
+  letter-spacing: 0.02em;
+}
+
+.euroleague-section-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 4px;
+  text-align: center;
+}
+
+.euroleague-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.euroleague-stat-label {
+  font-size: 9px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+  font-weight: 500;
+  white-space: normal;
+  line-height: 1.1;
+  height: 24px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.euroleague-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.euroleague-stat-value.is-points-for {
+  color: var(--accent);
+}
+
+.euroleague-stat-value.is-points-against {
+  color: var(--red);
+}
+
+

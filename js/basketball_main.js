@@ -1,4 +1,4 @@
-import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchBasketballCompetitions } from "./api.js";
+import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchBasketballCompetitions, fetchEuroleagueClubsStats } from "./api.js";
 import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, replaceCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename } from "./csv.js";
 import {
   getSelectedCompetition,
@@ -23,7 +23,8 @@ import {
   setError,
   setLoading,
   addDefaultStatistikaMarkets,
-  setSportId
+  setSportId,
+  renderEuroleagueStats
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -50,12 +51,25 @@ async function loadEventsForSelectedCompetition() {
   if (!competition) {
     resetEvents();
     resetMarkets();
+    hideEuroleagueStats();
     return;
   }
 
   const requestId = ++eventsRequestId;
   setEventsLoading(competition);
   resetMarkets();
+
+  // Check if Euroleague is selected
+  const isEuroleague = competition && (
+    competition.tournamentName.toLowerCase().includes("euroleague") ||
+    competition.tournamentName.toLowerCase().includes("evroliga")
+  );
+
+  if (isEuroleague) {
+    loadAndShowEuroleagueStats();
+  } else {
+    hideEuroleagueStats();
+  }
 
   try {
     const events = await fetchPrematchEventsForCompetition(competition.tournamentId);
@@ -80,6 +94,21 @@ async function loadMarketsForSelectedEvent() {
     return;
   }
 
+  const competition = getSelectedCompetition();
+  const isEuroleague = competition && (
+    competition.tournamentName.toLowerCase().includes("euroleague") ||
+    competition.tournamentName.toLowerCase().includes("evroliga")
+  );
+
+  if (isEuroleague) {
+    try {
+      const statsData = await fetchEuroleagueClubsStats();
+      renderEuroleagueStats(statsData, event.homeTeam, event.awayTeam);
+    } catch (err) {
+      console.error("Error updating Euroleague stats for event:", err);
+    }
+  }
+
   const requestId = ++marketsRequestId;
   setMarketsLoading(event);
 
@@ -93,6 +122,35 @@ async function loadMarketsForSelectedEvent() {
     if (requestId === marketsRequestId) {
       setMarketsError(error);
     }
+  }
+}
+
+async function loadAndShowEuroleagueStats() {
+  const container = document.querySelector("#euroleague-stats-container");
+  if (!container) return;
+
+  container.hidden = false;
+  container.innerHTML = `<div class="empty-state">⏳ Učitavanje statistike Evrolige...</div>`;
+
+  try {
+    const statsData = await fetchEuroleagueClubsStats();
+    const event = getSelectedEvent();
+    if (event) {
+      renderEuroleagueStats(statsData, event.homeTeam, event.awayTeam);
+    } else {
+      renderEuroleagueStats(statsData, null, null);
+    }
+  } catch (err) {
+    console.error("Failed to load Euroleague stats:", err);
+    container.innerHTML = `<div class="empty-state is-error">⚠️ Greška pri učitavanju statistike: ${err.message}</div>`;
+  }
+}
+
+function hideEuroleagueStats() {
+  const container = document.querySelector("#euroleague-stats-container");
+  if (container) {
+    container.hidden = true;
+    container.innerHTML = "";
   }
 }
 

@@ -33,6 +33,27 @@ export function fetchBasketballCompetitions() {
   return fetchCompetitions(SUPERBET_CONFIG.basketballSportId);
 }
 
+let euroleagueStatsCache = null;
+
+export async function fetchEuroleagueClubsStats() {
+  if (euroleagueStatsCache) {
+    return euroleagueStatsCache;
+  }
+  const response = await fetch("https://ycpcq74tr3.execute-api.eu-central-1.amazonaws.com/prod/league/euroleague/clubs-full-stats", {
+    headers: {
+      accept: "application/json, text/plain, */*"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Euroleague stats API returned ${response.status}`);
+  }
+
+  const payload = await response.json();
+  euroleagueStatsCache = payload;
+  return payload;
+}
+
 export async function fetchPrematchEventsForCompetition(tournamentId, date = new Date()) {
   const startDate = formatApiDate(startOfDay(date));
   const params = new URLSearchParams({
