@@ -435,14 +435,16 @@ function applyOddsRangeFilter(markets) {
 }
 
 function filterMarketsByTab(markets, tab) {
+  const isMarketCombo = (m) => m.marketName.includes(";") || (currentSportId === 2 && m.marketName.includes("&"));
+
   if (tab === "specijali") {
-    return applyOddsRangeFilter(markets.filter((m) => m.marketName.includes(";")));
+    return applyOddsRangeFilter(markets.filter(isMarketCombo));
   }
 
   if (tab === "all") return applyOddsRangeFilter(markets);
 
   // Both "standard" and "statistika" start from non-combo markets
-  const nonCombo = markets.filter((m) => !m.marketName.includes(";"));
+  const nonCombo = markets.filter((m) => !isMarketCombo(m));
 
   if (tab === "statistika") {
     return applyOddsRangeFilter(nonCombo.filter((m) => isStatistikaMarket(m.marketName)));
@@ -476,6 +478,10 @@ const BASKETBALL_STATISTIKA_KEYWORDS = [
   "pogodaka za 3 poena", "postignutih 3 poena", "3 poena"
 ];
 
+const TENNIS_STATISTIKA_KEYWORDS = [
+  "asov", "asev", "dupl", "brejk", "poen", "servis"
+];
+
 /**
  * Returns true if the market name matches a team-level statistika keyword.
  * Player-prop markets that incidentally contain "šut" or "faul" etc. are excluded
@@ -486,7 +492,9 @@ function isStatistikaMarket(marketName) {
   if (norm.includes("igrac")) return false;
   const keywords = currentSportId === 4
     ? BASKETBALL_STATISTIKA_KEYWORDS
-    : STATISTIKA_KEYWORDS;
+    : currentSportId === 2
+      ? TENNIS_STATISTIKA_KEYWORDS
+      : STATISTIKA_KEYWORDS;
   return keywords.some((kw) => norm.includes(normalizeSearchText(kw)));
 }
 
@@ -541,7 +549,7 @@ function extractPlayers(markets) {
   );
 
   for (const market of markets) {
-    if (market.marketName.includes(";")) continue;
+    if (market.marketName.includes(";") || (currentSportId === 2 && market.marketName.includes("&"))) continue;
 
     for (const odd of market.odds) {
       const candidates = [
@@ -596,8 +604,16 @@ function isDefaultPlayerMarket(marketName) {
   if (currentSportId === 4) {
     return isDefaultPlayerMarketBasketball(marketName);
   }
+  if (currentSportId === 2) {
+    return isDefaultPlayerMarketTennis(marketName);
+  }
   const n = normalizeSearchText(marketName);
   return DEFAULT_MARKET_CHECKS.some((check) => check(n));
+}
+
+function isDefaultPlayerMarketTennis(marketName) {
+  const n = normalizeSearchText(marketName);
+  return n.includes("asova") || n.includes("aseva") || n.includes("duplih") || n.includes("brejk") || n.includes("osvojenih poena");
 }
 
 function isDefaultPlayerMarketBasketball(marketName) {
@@ -832,7 +848,7 @@ function formatEventOption(event) {
 function createMarketCard(market) {
   const card = document.createElement("article");
   const oddsGrid = document.createElement("div");
-  const isCombo = market.marketName.includes(";");
+  const isCombo = market.marketName.includes(";") || (currentSportId === 2 && market.marketName.includes("&"));
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
   const isSplitStatistika = isStatistika && market.odds.length >= 3;
 
@@ -1028,6 +1044,21 @@ const BASKETBALL_DEFAULT_MARKET_BASES = [
   "{away} - Ukupno pogodaka za 3 poena (uklj. produžetke)"
 ];
 
+const TENNIS_DEFAULT_MARKET_BASES = [
+  "Ukupno asova",
+  "Ukupno asova - {home}",
+  "Ukupno asova - {away}",
+  "Ukupno duplih grešaka",
+  "Ukupno duplih grešaka - {home}",
+  "Ukupno duplih grešaka - {away}",
+  "Ukupno brejkova",
+  "Ukupno brejkova - {home}",
+  "Ukupno brejkova - {away}",
+  "Ukupno poena",
+  "Ukupno osvojenih poena - {home}",
+  "Ukupno osvojenih poena - {away}"
+];
+
 let _defaultHost = null;
 
 function _resetDefaultHost() {
@@ -1113,7 +1144,11 @@ export function addDefaultStatistikaMarkets() {
     if (!btn.classList.contains("is-added")) btn.remove();
   }
 
-  const bases = currentSportId === 4 ? BASKETBALL_DEFAULT_MARKET_BASES : DEFAULT_MARKET_BASES;
+  const bases = currentSportId === 4
+    ? BASKETBALL_DEFAULT_MARKET_BASES
+    : currentSportId === 2
+      ? TENNIS_DEFAULT_MARKET_BASES
+      : DEFAULT_MARKET_BASES;
 
   for (const base of bases) {
     if (base.includes("{home}") && !home) continue;
@@ -1197,22 +1232,31 @@ const BASKETBALL_ROSTERS = {
   ]
 };
 
-function guessBasketballPlayerTeam(playerName, homeTeam, awayTeam) {
+function guessPlayerTeam(playerName, homeTeam, awayTeam) {
   const normName = normalizeSearchText(playerName);
   const normHome = normalizeSearchText(homeTeam);
   const normAway = normalizeSearchText(awayTeam);
 
-  for (const [teamKey, players] of Object.entries(BASKETBALL_ROSTERS)) {
-    for (const p of players) {
-      if (normName.includes(p)) {
-        if (normHome.includes(teamKey)) return "home";
-        if (normAway.includes(teamKey)) return "away";
+  if (currentSportId === 4) {
+    for (const [teamKey, players] of Object.entries(BASKETBALL_ROSTERS)) {
+      for (const p of players) {
+        if (normName.includes(p)) {
+          if (normHome.includes(teamKey)) return "home";
+          if (normAway.includes(teamKey)) return "away";
+        }
       }
     }
   }
 
-  if (normHome.split(/\s+/).some(word => word.length > 3 && normName.includes(word))) return "home";
-  if (normAway.split(/\s+/).some(word => word.length > 3 && normName.includes(word))) return "away";
+  // General word containment check (works for Tennis and other sports)
+  const homeWords = normHome.split(/\s+/).filter(w => w.length > 2);
+  const awayWords = normAway.split(/\s+/).filter(w => w.length > 2);
+
+  if (homeWords.some(word => normName.includes(word))) return "home";
+  if (awayWords.some(word => normName.includes(word))) return "away";
+
+  if (normHome.includes(normName) || normName.includes(normHome)) return "home";
+  if (normAway.includes(normName) || normName.includes(normAway)) return "away";
 
   return "home";
 }
@@ -1290,7 +1334,7 @@ function createPlayerGroupCardBasketball(query, matches) {
   teamSelect.add(optHome);
   teamSelect.add(optAway);
 
-  let initialSide = guessBasketballPlayerTeam(query, homeTeam, awayTeam);
+  let initialSide = guessPlayerTeam(query, homeTeam, awayTeam);
   teamSelect.value = initialSide;
   
   matches.forEach(({ odd }) => {

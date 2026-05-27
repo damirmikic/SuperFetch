@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SPECIJALI — CSV generator specijala</title>
-    <meta name="description" content="CSV generator specijala za soccer takmičenja.">
+    <title>SPECIJALI — Tenis</title>
+    <meta name="description" content="CSV generator specijala za teniska takmičenja.">
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,9 +24,9 @@
           </div>
         </div>
         <nav class="sports-nav">
-          <a href="index.html" class="sport-link is-active">⚽ Fudbal</a>
+          <a href="index.html" class="sport-link">⚽ Fudbal</a>
           <a href="basketball.html" class="sport-link">🏀 Košarka</a>
-          <a href="tennis.html" class="sport-link">🎾 Tenis</a>
+          <a href="tennis.html" class="sport-link is-active">🎾 Tenis</a>
         </nav>
         <div class="topbar-controls">
           <label class="field field--inline" aria-label="Select competition">
@@ -89,16 +89,13 @@
             </div>
           </div>
 
-
           <!-- Market type tabs -->
           <div class="market-tabs" role="tablist" aria-label="Market type">
             <button class="market-tab is-active" role="tab" aria-selected="true"  data-tab="all"        id="tab-all"        aria-controls="markets-list">Sve</button>
             <button class="market-tab"           role="tab" aria-selected="false" data-tab="standard"   id="tab-standard"   aria-controls="markets-list">Obično</button>
             <button class="market-tab"           role="tab" aria-selected="false" data-tab="statistika" id="tab-statistika" aria-controls="markets-list">Statistika</button>
             <button class="market-tab"           role="tab" aria-selected="false" data-tab="specijali"    id="tab-specijali"    aria-controls="markets-list">Specijali</button>
-            <button class="market-tab"           role="tab" aria-selected="false" data-tab="home-players" id="tab-home-players" aria-controls="markets-list">Dom. igrači</button>
-            <button class="market-tab"           role="tab" aria-selected="false" data-tab="away-players" id="tab-away-players" aria-controls="markets-list">Gost. igrači</button>
-            <button class="market-tab"           role="tab" aria-selected="false" data-tab="simulation"   id="tab-simulation"   aria-controls="markets-list">Simulacija</button>
+            <button class="market-tab"           role="tab" aria-selected="false" data-tab="players"      id="tab-players"      aria-controls="markets-list">Igrači</button>
           </div>
 
           <!-- Market search -->
@@ -148,11 +145,6 @@
               <button id="dodaj-default-button" class="action-btn action-btn--secondary" type="button" disabled>
                 Dodaj default
               </button>
-              
-              <label id="start-sifra-container" class="field field--inline" style="margin: 0; display: none; align-items: center; gap: 6px;">
-                <span class="field-label" style="font-size: 11px;">Početna šifra</span>
-                <input id="start-sifra" class="margin-pct-input" type="number" value="50049" style="width: 75px; height: 28px; padding: 2px 6px; font-size: 12px; margin: 0; text-align: center;">
-              </label>
 
               <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled style="margin-left: auto;">
                 <span class="btn-icon">⤓</span> Download
@@ -177,6 +169,6 @@
       </main>
     </div>
 
-    <script type="module" src="./js/main.js"></script>
+    <script type="module" src="./js/tennis_main.js"></script>
   </body>
 </html>

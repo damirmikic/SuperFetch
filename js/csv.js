@@ -349,6 +349,24 @@ export function mapOddToCsvMarket(market, odd) {
   if (mkt.includes("faul")) return { market: name, answer };
   if (mkt.includes("ofsajd")) return { market: name, answer };
 
+  // Tennis player markets
+  if (mkt.includes("asova") || mkt.includes("aseva")) {
+    if (mkt.includes("asova + duplih")) return { market: "asovi+duple greske", answer };
+    return { market: "asovi", answer };
+  }
+  if (mkt.includes("duplih gresaka")) return { market: "duple greske", answer };
+  if (mkt.includes("brejkova")) return { market: "brejkovi", answer };
+  if (mkt.includes("osvojenih poena")) {
+    if (mkt.includes("servis") || mkt.includes("servisu")) {
+      if (mkt.includes("1. servis")) return { market: "poeni na 1. servisu", answer };
+      if (mkt.includes("2. servis")) return { market: "poeni na 2. servisu", answer };
+      return { market: "poeni na servisu", answer };
+    }
+    return { market: "poeni", answer };
+  }
+  if (mkt.includes("servis gresaka")) return { market: "servis greske", answer };
+  if (mkt.includes("uspesnih 1. servisa")) return { market: "uspesni 1. servisi", answer };
+
   return null;
 }
 
@@ -363,6 +381,16 @@ function sortPlayerRows(rows) {
     if (n === "poeni+skokovi") return 25;
     if (n === "poeni+skokovi+asistencije") return 26;
     if (n === "najbolji strelac") return 27;
+
+    if (n === "asovi") return 30;
+    if (n === "duple greske") return 31;
+    if (n === "brejkovi") return 32;
+    if (n === "asovi+duple greske") return 33;
+    if (n === "poeni na servisu") return 34;
+    if (n === "poeni na 1. servisu") return 35;
+    if (n === "poeni na 2. servisu") return 36;
+    if (n === "servis greske") return 37;
+    if (n === "uspesni 1. servisi") return 38;
 
     if (n.includes("postize") && n.includes("2")) return 1;
     if (n.includes("postize") && n.includes("glav")) return 2;
@@ -431,13 +459,13 @@ export function extractLineOrNull(text) {
   const plus = String(text).match(/(\d+(?:[.,]\d+)?)\s*\+/);
   if (plus) return `${plus[1].replace(",", ".")}+`;
   
-  const over = String(text).match(/(?:više od|vise od|over)\s*(\d+(?:[.,]\d+)?)/i);
+  const over = String(text).match(/(?:više od|vise od|vise|više|over)\s*(\d+(?:[.,]\d+)?)/i);
   if (over) {
     const val = parseFloat(over[1].replace(",", "."));
     return `${Math.floor(val) + 1}+`;
   }
   
-  const under = String(text).match(/(?:manje od|under)\s*(\d+(?:[.,]\d+)?)/i);
+  const under = String(text).match(/(?:manje od|manje|under)\s*(\d+(?:[.,]\d+)?)/i);
   if (under) {
     const val = parseFloat(under[1].replace(",", "."));
     return `${Math.floor(val)}-`;

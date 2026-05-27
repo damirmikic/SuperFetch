@@ -33,6 +33,10 @@ export function fetchBasketballCompetitions() {
   return fetchCompetitions(SUPERBET_CONFIG.basketballSportId);
 }
 
+export function fetchTennisCompetitions() {
+  return fetchCompetitions(SUPERBET_CONFIG.tennisSportId);
+}
+
 let euroleagueStatsCache = null;
 
 export async function fetchEuroleagueClubsStats() {

@@ -9,5 +9,6 @@ export const SUPERBET_CONFIG = {
   locale: "sr-Latn-RS",
   soccerSportId: 5,
   basketballSportId: 4,
+  tennisSportId: 2,
   upcomingDays: 14
 };
