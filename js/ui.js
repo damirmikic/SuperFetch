@@ -494,8 +494,8 @@ const DEFAULT_MARKET_CHECKS = [
   (n) => n.includes("ukupan") && n.includes("asistencij"),
   (n) => n.includes("gol") && n.includes("ili") && n.includes("asistir"),
   (n) => n.includes("gol") && n.includes("asistir") && !n.includes("ili"),
-  (n) => n.includes("ukupan") && n.includes("sutev") && n.includes("okvir") && !n.includes("levom") && !n.includes("desnom") && !n.includes("van"),
-  (n) => n.includes("ukupno") && n.includes("sutev") && !n.includes("van") && !n.includes("levom") && !n.includes("desnom"),
+  (n) => (n.includes("ukupan") || n.includes("ukupno")) && n.includes("sutev") && n.includes("okvir") && !n.includes("levom") && !n.includes("desnom") && !n.includes("van"),
+  (n) => n.includes("ukupno") && n.includes("sutev") && !n.includes("okvir") && !n.includes("van") && !n.includes("levom") && !n.includes("desnom"),
   (n) => n.includes("karton"),
   (n) => n.includes("faul") && n.includes("nacinjenih"),
 ];
@@ -911,6 +911,9 @@ const DEFAULT_MARKET_BASES = [
   "Ukupno šuteva u okvir gola",
   "{home} ukupno šuteva u okvir gola",
   "{away} ukupno šuteva u okvir gola",
+  "Ukupno šuteva",
+  "Ukupno šuteva {home}",
+  "Ukupno šuteva {away}",
   "Ukupno faulova",
   "Ukupno ofsajda",
 ];
