@@ -434,9 +434,22 @@ function applyOddsRangeFilter(markets) {
   }));
 }
 
-function filterMarketsByTab(markets, tab) {
-  const isMarketCombo = (m) => m.marketName.includes(";") || (currentSportId === 2 && m.marketName.includes("&"));
+function isMarketCombo(market) {
+  const norm = normalizeSearchText(market.marketName);
+  if (norm.includes(";")) return true;
+  if (currentSportId === 2) {
+    if (norm.includes("&")) return true;
+    if (norm.includes("osvaja") && norm.includes("set")) return true;
+    if (norm.includes("sa nulom")) return true;
+    if (norm.includes("posle") && norm.includes("gemova")) return true;
+    if (norm.includes("nakon zaostatka")) return true;
+    if (norm.includes("bez izgubljenog")) return true;
+    if (norm.includes("oba igraca ce")) return true;
+  }
+  return false;
+}
 
+function filterMarketsByTab(markets, tab) {
   if (tab === "specijali") {
     return applyOddsRangeFilter(markets.filter(isMarketCombo));
   }
@@ -549,7 +562,7 @@ function extractPlayers(markets) {
   );
 
   for (const market of markets) {
-    if (market.marketName.includes(";") || (currentSportId === 2 && market.marketName.includes("&"))) continue;
+    if (isMarketCombo(market)) continue;
 
     for (const odd of market.odds) {
       const candidates = [
@@ -848,7 +861,7 @@ function formatEventOption(event) {
 function createMarketCard(market) {
   const card = document.createElement("article");
   const oddsGrid = document.createElement("div");
-  const isCombo = market.marketName.includes(";") || (currentSportId === 2 && market.marketName.includes("&"));
+  const isCombo = isMarketCombo(market);
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
   const isSplitStatistika = isStatistika && market.odds.length >= 3;
 
@@ -1051,12 +1064,19 @@ const TENNIS_DEFAULT_MARKET_BASES = [
   "Ukupno duplih grešaka",
   "Ukupno duplih grešaka - {home}",
   "Ukupno duplih grešaka - {away}",
+  "Ukupno asova + duplih grešaka",
   "Ukupno brejkova",
   "Ukupno brejkova - {home}",
   "Ukupno brejkova - {away}",
-  "Ukupno poena",
-  "Ukupno osvojenih poena - {home}",
-  "Ukupno osvojenih poena - {away}"
+  "1. set - Ukupno asova",
+  "1. set - Ukupno duplih grešaka",
+  "1. Set - ukupno brejkova",
+  "{home} osvaja tačno 1 set",
+  "{away} osvaja tačno 1 set",
+  "{home} osvaja tačno 2 seta",
+  "{away} osvaja tačno 2 seta",
+  "Barem jedan set sa nulom",
+  "1. set - Tačan rezultat posle 6 gemova"
 ];
 
 let _defaultHost = null;
@@ -1160,9 +1180,10 @@ export function addDefaultStatistikaMarkets() {
     const matches = currentMarkets.filter((m) => normalizeSearchText(m.marketName) === specNorm);
     if (!matches.length) continue;
 
+    const isCombo = isMarketCombo(matches[0]);
     const isSplit = matches[0].odds.length >= 3;
 
-    if (isSplit) {
+    if (isCombo || isSplit) {
       for (const market of matches) {
         for (const odd of market.odds) {
           const specKey = `${specNorm}|${normalizeSearchText(odd.name)}`;

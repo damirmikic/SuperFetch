@@ -86,10 +86,25 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
  * Build a single CSV data row for a specijali odd (no header lines).
  */
 export function buildSpecijalRow({ event, marketName, odd }) {
+  const oddNameLower = String(odd.name).toLowerCase().trim();
+  if (oddNameLower === "ne" || oddNameLower === "no") return "";
+
   const { date, time } = formatEventDateTime(event.matchDate);
   const market = toAsciiMarketName(String(marketName).trim());
   const rawAnswer = toAsciiMarketName(String(odd.name).trim());
-  const answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
+  let answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
+
+  const marketNorm = normalizeSearchText(marketName);
+  if (
+    (marketNorm.includes("osvaja tacno") && marketNorm.includes("set")) ||
+    marketNorm.includes("barem jedan set sa nulom")
+  ) {
+    const ansLower = String(answer).toLowerCase();
+    if (ansLower === "da" || ansLower === "yes") {
+      answer = "";
+    }
+  }
+
   if (!market) return "";
   return formatCsvRow([date, time, "", market, answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
 }
