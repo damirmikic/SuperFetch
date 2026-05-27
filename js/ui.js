@@ -2237,7 +2237,7 @@ export function renderSimulationView() {
         const content = document.createElement("div");
         content.style.marginTop = "12px";
         content.style.display = "grid";
-        content.style.gridTemplateColumns = "repeat(auto-fit, minmax(280px, 1fr))";
+        content.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
         content.style.gap = "16px";
 
         // Column 1: Forecast & Top 2 & Outrights
@@ -2251,7 +2251,7 @@ export function renderSimulationView() {
           <thead>
             <tr>
               <th>Opklada</th>
-              <th>Kvota</th>
+              <th class="text-center col-numeric">Kvota</th>
             </tr>
           </thead>
           <tbody>
@@ -2269,7 +2269,7 @@ export function renderSimulationView() {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${item.label}</td>
-            <td><span class="odds-value-display" data-market-type="outright" data-original-price="${item.fair}">${item.price.toFixed(2)}</span></td>
+            <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="outright" data-original-price="${item.fair}">${item.price.toFixed(2)}</span></td>
           `;
           col1Body.append(tr);
         }
@@ -2285,7 +2285,7 @@ export function renderSimulationView() {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td>Prva dva: ${t1}/${t2}</td>
-              <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+              <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
             `;
             col1Body.append(tr);
           }
@@ -2303,7 +2303,7 @@ export function renderSimulationView() {
           <thead>
             <tr>
               <th>Poredak</th>
-              <th>Kvota</th>
+              <th class="text-center col-numeric">Kvota</th>
             </tr>
           </thead>
           <tbody>
@@ -2320,7 +2320,7 @@ export function renderSimulationView() {
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td>1. ${t1} / 2. ${t2}</td>
-              <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+              <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
             `;
             col2Body.append(tr);
           }
@@ -2338,9 +2338,9 @@ export function renderSimulationView() {
           <thead>
             <tr>
               <th>Igra</th>
-              <th>Granica</th>
-              <th>Manje</th>
-              <th>Više</th>
+              <th class="text-center col-numeric">Granica</th>
+              <th class="text-center col-numeric">Manje</th>
+              <th class="text-center col-numeric">Više</th>
             </tr>
           </thead>
           <tbody>
@@ -2367,9 +2367,9 @@ export function renderSimulationView() {
           const { fairUnder, fairOver } = getFairOu(line, distribution);
           tr.innerHTML = `
             <td>${label}</td>
-            <td>${line.toFixed(1)}</td>
-            <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairUnder}">${oddsObj.underOdds.toFixed(2)}</span></td>
-            <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairOver}">${oddsObj.overOdds.toFixed(2)}</span></td>
+            <td class="text-center col-numeric">${line.toFixed(1)}</td>
+            <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="ou" data-original-price="${fairUnder}">${oddsObj.underOdds.toFixed(2)}</span></td>
+            <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="ou" data-original-price="${fairOver}">${oddsObj.overOdds.toFixed(2)}</span></td>
           `;
           col3Body.append(tr);
         };
@@ -2414,7 +2414,7 @@ export function renderSimulationView() {
           <thead>
             <tr>
               <th>Tim</th>
-              <th>Kvota</th>
+              <th class="text-center col-numeric">Kvota</th>
             </tr>
           </thead>
           <tbody>
@@ -2427,7 +2427,7 @@ export function renderSimulationView() {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${team}</td>
-            <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+            <td class="text-center col-numeric"><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
           `;
           col3EfficientBody.append(tr);
         }

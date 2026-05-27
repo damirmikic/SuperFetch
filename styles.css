@@ -160,7 +160,7 @@ body {
   grid-template-columns: 300px 1fr;
   gap: 0;
   flex: 1;
-  max-width: 1280px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
   padding: 24px 20px;
@@ -1427,6 +1427,28 @@ select:disabled {
 .standings-table tr:hover td,
 .matches-table tr:hover td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* Compact styles for tables in additional simulation markets details */
+.simulation-additional-markets table.standings-table th,
+.simulation-additional-markets table.standings-table td {
+  padding: 6px 6px;
+  font-size: 12px;
+}
+
+.simulation-additional-markets table.standings-table th {
+  font-size: 10px;
+}
+
+.simulation-additional-markets table.standings-table th.text-center,
+.simulation-additional-markets table.standings-table td.text-center {
+  text-align: center;
+}
+
+.simulation-additional-markets table.standings-table th.col-numeric,
+.simulation-additional-markets table.standings-table td.col-numeric {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .standings-team-name {
