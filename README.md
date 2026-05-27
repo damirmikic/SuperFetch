@@ -1,6 +1,6 @@
 # SPECIJALI
 
-Browser-based CSV generator for Superbet soccer odds.
+Browser-based CSV generator for Superbet soccer/basketball odds and tournament group simulations.
 
 ## Run locally
 
@@ -25,17 +25,23 @@ Push to GitHub and connect to Netlify. `netlify.toml` is already configured — 
    - **Obično** — standard match markets
    - **Statistika** — team-level stats (corners, fouls, shots…); markets with 1–2 odds (e.g. Under/Over) get a single "+" that adds one CSV row; markets with 3+ odds (e.g. Korneri raspon) get an individual "+" per selection, each adding its own row
    - **Specijali** — combo/accumulator markets; one "+" button per odd
-   - **Dom. igrači / Gost. igrači** — player props grouped by player in collapsible cards
+   - **Igrači** — player props grouped by player in collapsible cards
+   - **Simulacija** — (Soccer only) tournament group stage simulation view. Simulates match scores and standing probabilities to compute fair odds and lines.
 4. **Search** — filter visible markets or players by name within the active tab.
-5. **Odds range filter** — available on Specijali and both player tabs; hides odds outside the od/do range.
-6. **Promeni kvote** — apply a percentage decrease or increase to all odds before they enter the CSV; changes are reflected in real time on the odds buttons and in the CSV preview.
+5. **Odds range filter** — available on Specijali and player tabs; hides odds outside the od/do range.
+6. **Margin controls** — configure and apply betting margins separately:
+   - **Margin Outrights** — affects Outright/Special markets (e.g. 1X2, combo/specijali, winner, exact forecast, top 2, etc.)
+   - **Margin O/U** — affects Over/Under and stats markets (e.g. corners, cards, player points/props, group total goals/draws lines)
+   - Real-time changes are reflected on the odds buttons and in the CSV preview.
 7. **+ buttons** — add individual odds to the CSV. Click again to remove. The CSV clears automatically when all selections are unchecked.
-8. **Primeni** — re-applies the current margin to all already-added rows.
-9. **Dodaj default** — bulk-adds a preset list of statistika markets for the loaded event. For each market the most balanced Under/Over line is picked automatically; range markets (3+ odds) add every selection. Skips markets not available for the current event; clicking again skips already-added entries.
-10. **Download** — saves the CSV. Filename is the team name for player props, or the full event name for Specijali/Statistika.
+8. **Primeni** — re-applies the current margins to all already-added rows.
+9. **Početna šifra** — configure the starting Sifra (code) number in the CSV actions toolbar (defaults to `50049`), which increments sequentially for generated rows.
+10. **Dodaj default** — bulk-adds a preset list of statistika markets for the loaded event. For each market the most balanced Under/Over line is picked automatically; range markets (3+ odds) add every selection. Skips markets not available for the current event; clicking again skips already-added entries.
+11. **Download** — saves the CSV. Filename is the team name for player props, or the full event name for Specijali/Statistika.
 
 ## CSV structure
 
+For standard markets:
 ```
 Datum,Vreme,Sifra,Domacin,Gost,1,X,2,GR,U,O,Yes,No
 MATCH_NAME:<team or event>
@@ -44,6 +50,15 @@ LEAGUE_NAME:<player or event>
 ```
 
 Player-prop files group rows by team (`MATCH_NAME`) and player (`LEAGUE_NAME`). Mixing players from different teams in one CSV is blocked. Specijali and Statistika files use `MATCH_NAME:Specijal` with the event name as `LEAGUE_NAME`.
+
+For Soccer Group Simulations, the exported CSV formats all selections under a single tournament-level header:
+```
+Datum,Vreme,Sifra,Domacin,Gost,1,X,2,GR,U,O,Yes,No
+MATCH_NAME:<competitionName>
+LEAGUE_NAME:<groupName> (e.g., Grupa A)
+<outrights, exact forecast, top 2, total lines, and efficiency rows...>
+```
+Combination markets (`Tacan poredak`, `Prva dva u grupi`) are automatically sorted by odds in ascending order. Individual team points are omitted from the export.
 
 All market and odd names in the CSV are ASCII-normalized (ć→c, č→c, š→s, ž→z, đ→d).
 

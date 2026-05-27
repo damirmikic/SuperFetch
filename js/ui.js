@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -44,6 +44,54 @@ let currentEvent = null;
 let activeMarketTab = "all";
 let marketSearch = "";
 let currentSportId = 5; // Default is soccer (5)
+let activeSimSubTab = "groups";
+
+const WORLD_CUP_2026_FALLBACK_OUTRIGHTS = {
+  "Španija": 5.50,
+  "Francuska": 6.00,
+  "Engleska": 8.00,
+  "Brazil": 9.00,
+  "Argentina": 9.50,
+  "Portugal": 12.00,
+  "Nemačka": 14.00,
+  "Holandija": 20.00,
+  "Norveška": 35.00,
+  "Belgija": 40.00,
+  "Kolumbija": 45.00,
+  "Japan": 65.00,
+  "Maroko": 65.00,
+  "SAD": 65.00,
+  "USA": 65.00,
+  "Sjedinjene Američke Države": 65.00,
+  "Meksiko": 75.00,
+  "Urugvaj": 75.00,
+  "Švajcarska": 85.00,
+  "Hrvatska": 100.00,
+  "Ekvador": 100.00,
+  "Turska": 100.00,
+  "Austrija": 150.00,
+  "Senegal": 150.00,
+  "Švedska": 150.00,
+  "Paragvaj": 200.00,
+  "Kanada": 250.00,
+  "Egipat": 250.00,
+  "Obala Slonovače": 250.00,
+  "Škotska": 250.00,
+  "Češka": 350.00,
+  "Gana": 350.00,
+  "Bosna i Hercegovina": 475.00,
+  "Alžir": 500.00,
+  "Australija": 500.00,
+  "Iran": 500.00,
+  "Južna Koreja": 500.00,
+  "Tunis": 500.00,
+  "DR Kongo": 750.00,
+  "Irak": 1000.00,
+  "Novi Zeland": 1000.00,
+  "Panama": 1000.00,
+  "Katar": 1000.00,
+  "Saudijska Arabija": 1000.00
+};
 
 export function setSportId(sportId) {
   currentSportId = sportId;
@@ -240,23 +288,67 @@ export function getCurrentCsvFilename() {
   return elements.downloadCsvButton.dataset.filename || "odds.csv";
 }
 
-export function getMarginMultiplier() {
-  const pct = parseFloat(document.querySelector("#margin-pct").value);
+export function getOutrightMarginMultiplier() {
+  const input = document.querySelector("#margin-pct-outright");
+  const pct = input ? parseFloat(input.value) : NaN;
   if (!Number.isFinite(pct) || pct <= 0) return 1;
-  const direction = document.querySelector('input[name="margin-dir"]:checked').value;
+  const rad = document.querySelector('input[name="margin-dir-outright"]:checked');
+  const direction = rad ? rad.value : "decrease";
+  return direction === "decrease" ? 1 - pct / 100 : 1 + pct / 100;
+}
+
+export function getOuMarginMultiplier() {
+  const input = document.querySelector("#margin-pct-ou");
+  const pct = input ? parseFloat(input.value) : NaN;
+  if (!Number.isFinite(pct) || pct <= 0) return 1;
+  const rad = document.querySelector('input[name="margin-dir-ou"]:checked');
+  const direction = rad ? rad.value : "decrease";
   return direction === "decrease" ? 1 - pct / 100 : 1 + pct / 100;
 }
 
 export function refreshDisplayedPrices() {
-  const m = getMarginMultiplier();
+  const outrightM = getOutrightMarginMultiplier();
+  const ouM = getOuMarginMultiplier();
   for (const el of document.querySelectorAll(".odd-price[data-original-price], .player-odd-price[data-original-price], .odds-value-display[data-original-price]")) {
     const orig = parseFloat(el.dataset.originalPrice);
-    if (Number.isFinite(orig)) el.textContent = (orig * m).toFixed(2);
+    if (!Number.isFinite(orig)) continue;
+    const type = el.dataset.marketType || "outright";
+    const m = type === "ou" ? ouM : outrightM;
+    el.textContent = (orig * m).toFixed(2);
   }
 }
 
-export function renderMarketsForCurrentFilter() {
+export async function renderMarketsForCurrentFilter() {
+  const startSifraContainer = document.querySelector("#start-sifra-container");
+  if (startSifraContainer) {
+    startSifraContainer.style.display = (activeMarketTab === "simulation") ? "inline-flex" : "none";
+  }
+
   if (activeMarketTab === "simulation") {
+    if (!currentOutrightOdds || Object.keys(currentOutrightOdds).length === 0) {
+      elements.marketsList.replaceChildren(createEmptyState("Učitavanje autrajt kvota...", "⏳"));
+      try {
+        const events = Array.from(eventIndex.values());
+        const outrightEvent = findOutrightEvent(events);
+        if (outrightEvent) {
+          const markets = await fetchMarketsForEvent(outrightEvent);
+          currentOutrightOdds = extractOutrightOdds(markets);
+        } else {
+          currentOutrightOdds = {};
+        }
+      } catch (err) {
+        console.warn("Failed to fetch outright odds:", err);
+        currentOutrightOdds = {};
+      }
+
+      const comp = getSelectedCompetition();
+      const compName = (comp ? comp.tournamentName : "").toLowerCase();
+      const isWorldCupComp = compName.includes("world cup") || compName.includes("svetsko prvenstvo") || compName.includes("svetsko");
+      if (isWorldCupComp && (!currentOutrightOdds || Object.keys(currentOutrightOdds).length === 0)) {
+        console.log("Using static fallback outright odds for World Cup 2026.");
+        currentOutrightOdds = Object.assign({}, WORLD_CUP_2026_FALLBACK_OUTRIGHTS);
+      }
+    }
     renderSimulationView();
     return;
   }
@@ -683,11 +775,13 @@ function createPlayerOddRow(marketName, odd) {
   addButton.title = "Add to CSV";
   addButton.textContent = "+";
   addButton.dataset.marketName = marketName;
+  addButton.dataset.marketType = "ou";
   price.className = "player-odd-price";
   market.textContent = marketName;
   name.textContent = odd.name;
+  price.dataset.marketType = "ou";
   price.dataset.originalPrice = odd.price;
-  price.textContent = Number.isFinite(odd.price) ? (odd.price * getMarginMultiplier()).toFixed(2) : "-";
+  price.textContent = Number.isFinite(odd.price) ? (odd.price * getOuMarginMultiplier()).toFixed(2) : "-";
 
   addButton.addEventListener("click", () => {
     if (addButton.classList.contains("is-added")) {
@@ -782,7 +876,7 @@ function createMarketCard(market) {
         if (addBtn.classList.contains("is-added")) {
           const oldRow = addBtn.dataset.csvRow;
           const origPrice = parseFloat(addBtn.dataset.originalPrice);
-          const price = Number.isFinite(origPrice) ? origPrice * getMarginMultiplier() : odd.price;
+          const price = Number.isFinite(origPrice) ? origPrice * getOutrightMarginMultiplier() : odd.price;
           const oddForRow = lbl?.dataset.usesMarketName === "true"
             ? { ...odd, name: newName, price }
             : { ...odd, price };
@@ -801,7 +895,7 @@ function createMarketCard(market) {
     return card;
   }
 
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null, market.uuid)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null, market.uuid, isStatistika && !isSplitStatistika)));
 
   if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
@@ -813,6 +907,7 @@ function createMarketCard(market) {
     addBtn.className = "add-odd-button";
     addBtn.type = "button";
     addBtn.dataset.marketUuid = market.uuid;
+    addBtn.dataset.marketType = "ou";
     addBtn.title = "Add to CSV";
     addBtn.textContent = "+";
     addBtn.addEventListener("click", () => {
@@ -834,7 +929,7 @@ function createMarketCard(market) {
   return card;
 }
 
-function createOddButton(odd, contextText = "", comboMarketName = null, marketUuid = null) {
+function createOddButton(odd, contextText = "", comboMarketName = null, marketUuid = null, isOu = false) {
   const isCombo = comboMarketName !== null;
   const button = document.createElement("button");
   const label = document.createElement("span");
@@ -845,8 +940,10 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   label.className = "odd-label";
   price.className = "odd-price";
   label.textContent = contextText ? `${contextText} - ${odd.name}` : odd.name;
+  price.dataset.marketType = isOu ? "ou" : "outright";
   price.dataset.originalPrice = odd.price;
-  price.textContent = Number.isFinite(odd.price) ? (odd.price * getMarginMultiplier()).toFixed(2) : "-";
+  const m = isOu ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
+  price.textContent = Number.isFinite(odd.price) ? (odd.price * m).toFixed(2) : "-";
   button.append(label, price);
 
   if (!isCombo) return button;
@@ -861,6 +958,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   addBtn.title = "Add to CSV as Specijali";
   addBtn.textContent = "+";
   addBtn.dataset.currentMarketName = comboMarketName;
+  addBtn.dataset.marketType = "outright";
   if (marketUuid) addBtn.dataset.marketUuid = marketUuid;
   if (odd.uuid) addBtn.dataset.oddUuid = odd.uuid;
   addBtn.addEventListener("click", () => {
@@ -1046,6 +1144,7 @@ export function addDefaultStatistikaMarkets() {
           const btn = document.createElement("button");
           btn.className = "add-odd-button add-odd-button--inline";
           btn.dataset.specKey = specKey;
+          btn.dataset.marketType = "outright";
           host.appendChild(btn);
           document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
             detail: { marketName: market.marketName, odd, button: btn }
@@ -1068,6 +1167,7 @@ export function addDefaultStatistikaMarkets() {
       const btn = document.createElement("button");
       btn.className = "add-odd-button";
       btn.dataset.specKey = specKey;
+      btn.dataset.marketType = "ou";
       host.appendChild(btn);
       document.dispatchEvent(new CustomEvent("add-statistika-to-csv", {
         detail: { market: best, button: btn }
@@ -1479,14 +1579,110 @@ export function renderEuroleagueStats(statsData, homeTeamName, awayTeamName) {
 }
 
 export let simulationOverrides = {};
+let currentOutrightOdds = null;
 
 export function clearSimulationOverrides() {
   simulationOverrides = {};
+  currentOutrightOdds = null;
+  activeSimSubTab = "groups";
+}
+
+function findOutrightEvent(events) {
+  if (!events) return null;
+  return events.find(ev => {
+    const name = String(ev.matchName || "").toLowerCase();
+    const hasKeyword = name.includes("pobednik") || name.includes("winner") || name.includes("outright");
+    const isOutright = !ev.homeTeam && !ev.awayTeam;
+    return isOutright && (hasKeyword || ev.oddsCount > 10);
+  });
+}
+
+function extractOutrightOdds(markets) {
+  if (!markets) return {};
+  const winnerMarket = markets.find(m => {
+    const name = String(m.marketName || "").toLowerCase();
+    return name.includes("pobednik") || name.includes("winner") || name.includes("outright");
+  }) || markets.sort((a, b) => (b.odds?.length || 0) - (a.odds?.length || 0))[0];
+
+  if (!winnerMarket || !winnerMarket.odds) return {};
+
+  const oddsMap = {};
+  for (const o of winnerMarket.odds) {
+    const teamName = String(o.name).trim();
+    if (o.price > 1) {
+      oddsMap[teamName] = Number(o.price);
+    }
+  }
+  return oddsMap;
 }
 
 export function renderSimulationView() {
   const events = Array.from(eventIndex.values());
-  const groups = detectGroups(events);
+  let groups = detectGroups(events) || [];
+
+  const comp = getSelectedCompetition();
+  const compName = (comp ? comp.tournamentName : "").toLowerCase();
+  const isWorldCupComp = compName.includes("world cup") || compName.includes("svetsko prvenstvo") || compName.includes("svetsko");
+
+  if (isWorldCupComp && currentOutrightOdds && currentSportId === 5) {
+    const activeTeams = new Set();
+    for (const g of groups) {
+      for (const t of g.teams) {
+        activeTeams.add(t);
+      }
+    }
+
+    const allOutrightTeams = Object.keys(currentOutrightOdds);
+    const remainingTeams = allOutrightTeams.filter(t => !activeTeams.has(t));
+
+    let groupCharCodes = [];
+    const existingLetters = new Set(groups.map(g => g.name.replace("Grupa ", "").trim()));
+    for (let i = 0; i < 12; i++) {
+      const letter = String.fromCharCode(65 + i); // A to L
+      if (!existingLetters.has(letter)) {
+        groupCharCodes.push(letter);
+      }
+    }
+
+    const earliestMatch = events.find(ev => ev.matchDate) || {};
+    const eventDate = earliestMatch.matchDate || new Date().toISOString();
+
+    let dummyTeamCounter = 1;
+    while (groups.length < 12 && groupCharCodes.length > 0) {
+      const letter = groupCharCodes.shift();
+      const groupTeams = [];
+      for (let i = 0; i < 4; i++) {
+        if (remainingTeams.length > 0) {
+          groupTeams.push(remainingTeams.shift());
+        } else {
+          groupTeams.push(`Dummy Team ${dummyTeamCounter++}`);
+        }
+      }
+
+      const dummyMatches = [];
+      const combos = [
+        [0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]
+      ];
+      for (const [i1, i2] of combos) {
+        const t1 = groupTeams[i1];
+        const t2 = groupTeams[i2];
+        dummyMatches.push({
+          eventId: `dummy-${letter}-${t1}-${t2}`,
+          matchName: `${t1} - ${t2}`,
+          homeTeam: t1,
+          awayTeam: t2,
+          matchDate: eventDate,
+          odds: []
+        });
+      }
+
+      groups.push({
+        name: `Grupa ${letter}`,
+        teams: groupTeams.sort(),
+        matches: dummyMatches
+      });
+    }
+  }
 
   if (!groups || !groups.length) {
     elements.marketsList.replaceChildren(createEmptyState("Nema pronađenih grupa za simulaciju u ovom takmičenju.", "🏟️"));
@@ -1501,8 +1697,6 @@ export function renderSimulationView() {
     iterations = 500000;
   }
 
-  const comp = getSelectedCompetition();
-  const compName = (comp ? comp.tournamentName : "").toLowerCase();
   let bestThirdCount = 0;
   if (compName.includes("world cup") || compName.includes("svetsko prvenstvo") || compName.includes("svetsko")) {
     bestThirdCount = 8;
@@ -1563,255 +1757,690 @@ export function renderSimulationView() {
     });
   }
 
+  // Create sub-tabs for standings vs tournament outrights
+  const subTabs = document.createElement("div");
+  subTabs.style.display = "flex";
+  subTabs.style.gap = "8px";
+  subTabs.style.marginTop = "12px";
+  subTabs.style.marginBottom = "16px";
+  
+  const groupsBtn = document.createElement("button");
+  groupsBtn.className = `action-btn ${activeSimSubTab === "groups" ? "action-btn--primary" : "action-btn--secondary"}`;
+  groupsBtn.textContent = "Standings po grupama";
+  groupsBtn.style.fontSize = "11px";
+  groupsBtn.style.height = "26px";
+  groupsBtn.style.padding = "0 12px";
+  groupsBtn.style.borderRadius = "4px";
+  groupsBtn.addEventListener("click", () => {
+    activeSimSubTab = "groups";
+    renderSimulationView();
+  });
+
+  const outrightsBtn = document.createElement("button");
+  outrightsBtn.className = `action-btn ${activeSimSubTab === "outrights" ? "action-btn--primary" : "action-btn--secondary"}`;
+  outrightsBtn.textContent = "Autrajti turnira (Knockout)";
+  outrightsBtn.style.fontSize = "11px";
+  outrightsBtn.style.height = "26px";
+  outrightsBtn.style.padding = "0 12px";
+  outrightsBtn.style.borderRadius = "4px";
+  outrightsBtn.addEventListener("click", () => {
+    activeSimSubTab = "outrights";
+    renderSimulationView();
+  });
+
+  subTabs.append(groupsBtn, outrightsBtn);
+  container.append(subTabs);
+
 
   // Run tournament-wide simulation to correctly rank 3rd-placed teams and calculate their qualification odds
-  const tournamentResults = runTournamentSimulation(groups, currentSportId, simulationOverrides, iterations, bestThirdCount);
-  const marginMultiplier = getMarginMultiplier();
+  const { teamResults, groupResults } = runTournamentSimulation(groups, currentSportId, simulationOverrides, iterations, bestThirdCount, currentOutrightOdds);
+  const outrightM = getOutrightMarginMultiplier();
+  const ouM = getOuMarginMultiplier();
 
-  groups.forEach((group) => {
-    // 1. Get results for the teams in this group from the tournament-wide simulation results
-    const results = {};
-    for (const team of group.teams) {
-      results[team] = tournamentResults[team];
-    }
-    const odds = calculateOddsForGroup(group, results, marginMultiplier);
-
-    // 2. Create card element
-    const card = document.createElement("div");
-    card.className = "simulation-group-card";
-
-    // 3. Header
-    const header = document.createElement("div");
-    header.className = "simulation-group-header";
-
+  if (activeSimSubTab === "outrights") {
+    const outrightsCard = document.createElement("div");
+    outrightsCard.className = "simulation-group-card";
+    outrightsCard.style.width = "100%";
+    
     const title = document.createElement("h3");
     title.className = "simulation-group-name";
-    title.textContent = group.name;
+    title.textContent = "Simulirani autrajti turnira (Knockout faza)";
+    outrightsCard.append(title);
 
-    const actions = document.createElement("div");
-    actions.className = "simulation-group-actions";
+    const table = document.createElement("table");
+    table.className = "standings-table";
+    table.style.width = "100%";
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Tim</th>
+          <th>Pobednik</th>
+          <th>Dolazi do finala</th>
+          <th>1/2 finale</th>
+          <th>1/4 finale</th>
+          <th>1/8 finale</th>
+          <th>1/16 finale</th>
+        </tr>
+      </thead>
+    `;
 
-    const simBtn = document.createElement("button");
-    simBtn.className = "action-btn action-btn--primary";
-    simBtn.innerHTML = `<span class="btn-icon">🔄</span> Pokreni simulaciju`;
-    simBtn.addEventListener("click", () => {
-      renderSimulationView();
+    const body = document.createElement("tbody");
+    
+    // Get all unique teams from all groups
+    const allTeams = [];
+    groups.forEach(g => {
+      g.teams.forEach(t => {
+        if (!allTeams.includes(t)) {
+          allTeams.push(t);
+        }
+      });
     });
 
-    const csvBtn = document.createElement("button");
-    csvBtn.className = "action-btn";
-    csvBtn.innerHTML = `<span class="btn-icon">📝</span> Dodaj Grupu u CSV`;
-    csvBtn.addEventListener("click", () => {
-      const earliestMatch = group.matches[0];
-      const eventDate = earliestMatch ? earliestMatch.matchDate : "";
-      
-      const winnerCsv = buildGroupOutrightCsvBlock({
-        groupName: group.name,
-        marketTitle: "Pobednik Grupe",
-        teams: group.teams,
-        oddsMap: odds,
-        oddsField: "winnerOdds",
-        eventDate
-      });
-      const qualifyCsv = buildGroupOutrightCsvBlock({
-        groupName: group.name,
-        marketTitle: "Prolazi Grupu",
-        teams: group.teams,
-        oddsMap: odds,
-        oddsField: "qualifyOdds",
-        eventDate
-      });
-      const lastCsv = buildGroupOutrightCsvBlock({
-        groupName: group.name,
-        marketTitle: "Zavrsava Poslednji Grupa",
-        teams: group.teams,
-        oddsMap: odds,
-        oddsField: "lastOdds",
-        eventDate
-      });
-      const pointsCsv = buildGroupPointsCsvRows({
-        groupName: group.name,
-        teams: group.teams,
-        oddsMap: odds,
-        eventDate
-      });
+    // Sort teams by pTournamentWinner descending
+    allTeams.sort((a, b) => {
+      const resA = teamResults[a];
+      const resB = teamResults[b];
+      const pA = resA ? resA.pTournamentWinner : 0;
+      const pB = resB ? resB.pTournamentWinner : 0;
+      return pB - pA;
+    });
 
-      const blocks = [winnerCsv, qualifyCsv, lastCsv, pointsCsv].filter(Boolean);
-      const combinedBlock = blocks.join("\r\n");
+    allTeams.forEach(team => {
+      const res = teamResults[team];
+      if (!res) return;
+
+      const formatKoOdd = (prob) => {
+        if (prob <= 0.0001) return "999.00";
+        return (1 / prob * outrightM).toFixed(2);
+      };
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="standings-team-name">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <span>${team}</span>
+            <button class="add-team-csv-btn icon-btn" data-team="${team}" title="Export Team CSV" style="padding: 2px; border: none; background: transparent; cursor: pointer; font-size: 11px; margin: 0;">📝</button>
+          </div>
+        </td>
+        <td><strong class="odds-value-display" data-market-type="outright" data-original-price="${res.pTournamentWinner > 0.0001 ? 1/res.pTournamentWinner : 999}">${formatKoOdd(res.pTournamentWinner)}</strong></td>
+        <td><span class="odds-value-display" data-market-type="outright" data-original-price="${res.pReachesFinal > 0.0001 ? 1/res.pReachesFinal : 999}">${formatKoOdd(res.pReachesFinal)}</span></td>
+        <td><span class="odds-value-display" data-market-type="outright" data-original-price="${res.pReachesSF > 0.0001 ? 1/res.pReachesSF : 999}">${formatKoOdd(res.pReachesSF)}</span></td>
+        <td><span class="odds-value-display" data-market-type="outright" data-original-price="${res.pReachesQF > 0.0001 ? 1/res.pReachesQF : 999}">${formatKoOdd(res.pReachesQF)}</span></td>
+        <td><span class="odds-value-display" data-market-type="outright" data-original-price="${res.pReachesR16 > 0.0001 ? 1/res.pReachesR16 : 999}">${formatKoOdd(res.pReachesR16)}</span></td>
+        <td><span class="odds-value-display" data-market-type="outright" data-original-price="${res.pReachesR32 > 0.0001 ? 1/res.pReachesR32 : 999}">${formatKoOdd(res.pReachesR32)}</span></td>
+      `;
+      body.append(tr);
+    });
+
+    table.append(body);
+
+    table.addEventListener("click", (e) => {
+      const btn = e.target.closest(".add-team-csv-btn");
+      if (!btn) return;
+
+      const teamName = btn.dataset.team;
+      const teamGroup = groups.find(g => g.teams.includes(teamName)) || {};
+      const earliestMatch = teamGroup.matches ? teamGroup.matches[0] : null;
+      const eventDate = earliestMatch ? earliestMatch.matchDate : "";
+
+      const comp = getSelectedCompetition();
+      const competitionName = comp ? comp.tournamentName : "";
+      const sifraInput = document.querySelector("#start-sifra");
+      const startSifra = sifraInput ? parseInt(sifraInput.value, 10) : 50518;
+
+      const outrightM = getOutrightMarginMultiplier();
+      const ouM = getOuMarginMultiplier();
+
+      const csvContent = buildTeamSimulationCsv({
+        teamName,
+        teamResults,
+        eventDate,
+        competitionName,
+        startSifra: Number.isInteger(startSifra) ? startSifra : 50518,
+        outrightMultiplier: outrightM,
+        ouMultiplier: ouM
+      });
 
       const existing = getCsvOutput().trim();
       let newCsv;
       if (!existing) {
-        newCsv = `${CSV_COLUMNS.join(",")}\r\n${combinedBlock}`;
+        newCsv = `${CSV_COLUMNS.join(",")}\r\n${csvContent}`;
       } else {
-        newCsv = `${existing}\r\n${combinedBlock}`;
+        newCsv = `${existing}\r\n${csvContent}`;
       }
 
-      const comp = getSelectedCompetition();
-      const subject = comp ? `${comp.tournamentName}_simulacija` : "simulacija";
-      const filename = `${subject.toLowerCase().replace(/[^a-z0-9]/g, "_")}_odds.csv`;
-
+      const filename = `${teamName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_specijali.csv`;
       renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
     });
 
-    actions.append(simBtn, csvBtn);
-    header.append(title, actions);
-    card.append(header);
+    outrightsCard.append(table);
+    container.append(outrightsCard);
+  } else {
+    groups.forEach((group) => {
+      // 1. Get results for the teams in this group from the tournament-wide simulation results
+      const results = teamResults;
+      const gRes = groupResults ? groupResults[group.name] : null;
+      const { teamOdds: odds, groupOdds } = calculateOddsForGroup(group, teamResults, groupResults, outrightM, ouM);
 
-    // 4. Grid containing Standings and Matches
-    const grid = document.createElement("div");
-    grid.className = "simulation-grid";
+      // 2. Create card element
+      const card = document.createElement("div");
+      card.className = "simulation-group-card";
 
-    // ─── LEFT COLUMN: Standings ───
-    const standingsCol = document.createElement("div");
-    const standingsTitle = document.createElement("h4");
-    standingsTitle.className = "simulation-section-title";
-    standingsTitle.textContent = "Tabela & Proporcije";
-    standingsCol.append(standingsTitle);
+      // 3. Header
+      const header = document.createElement("div");
+      header.className = "simulation-group-header";
 
-    const standingsTable = document.createElement("table");
-    standingsTable.className = "standings-table";
-    standingsTable.innerHTML = `
-      <thead>
-        <tr>
-          <th>Tim</th>
-          <th>Proj Bod</th>
-          <th>Pobednik</th>
-          <th>Prolaz</th>
-          <th>Poslednji</th>
-          <th>Granica</th>
-          <th>Manje</th>
-          <th>Više</th>
-        </tr>
-      </thead>
-    `;
+      const title = document.createElement("h3");
+      title.className = "simulation-group-name";
+      title.textContent = group.name;
 
-    const standingsBody = document.createElement("tbody");
-    const sortedTeams = [...group.teams].sort((a, b) => results[b].expectedPoints - results[a].expectedPoints);
+      const actions = document.createElement("div");
+      actions.className = "simulation-group-actions";
 
-    sortedTeams.forEach((team) => {
-      const o = odds[team];
-      const res = results[team];
+      const simBtn = document.createElement("button");
+      simBtn.className = "action-btn action-btn--primary";
+      simBtn.innerHTML = `<span class="btn-icon">🔄</span> Pokreni simulaciju`;
+      simBtn.addEventListener("click", () => {
+        renderSimulationView();
+      });
 
-      const fairWinner = res.pWinner <= 0.0001 ? 999.00 : 1 / res.pWinner;
-      const fairQualify = res.pQualify <= 0.0001 ? 999.00 : 1 / res.pQualify;
-      const fairLast = res.pLast <= 0.0001 ? 999.00 : 1 / res.pLast;
+      const csvBtn = document.createElement("button");
+      csvBtn.className = "action-btn";
+      csvBtn.innerHTML = `<span class="btn-icon">📝</span> Dodaj Grupu u CSV`;
+      csvBtn.addEventListener("click", () => {
+        const earliestMatch = group.matches[0];
+        const eventDate = earliestMatch ? earliestMatch.matchDate : "";
+        
+        let combinedBlock;
+        if (currentSportId === 5) {
+          const comp = getSelectedCompetition();
+          const competitionName = comp ? comp.tournamentName : "";
+          const sifraInput = document.querySelector("#start-sifra");
+          const startSifra = sifraInput ? parseInt(sifraInput.value, 10) : 50049;
+          combinedBlock = buildFullGroupSimulationCsv({
+            group,
+            teamOdds: odds,
+            groupOdds,
+            eventDate,
+            competitionName,
+            startSifra: Number.isInteger(startSifra) ? startSifra : 50049
+          });
+        } else {
+          const winnerCsv = buildGroupOutrightCsvBlock({
+            groupName: group.name,
+            marketTitle: "Pobednik Grupe",
+            teams: group.teams,
+            oddsMap: odds,
+            oddsField: "winnerOdds",
+            eventDate
+          });
+          const qualifyCsv = buildGroupOutrightCsvBlock({
+            groupName: group.name,
+            marketTitle: "Prolazi Grupu",
+            teams: group.teams,
+            oddsMap: odds,
+            oddsField: "qualifyOdds",
+            eventDate
+          });
+          const lastCsv = buildGroupOutrightCsvBlock({
+            groupName: group.name,
+            marketTitle: "Zavrsava Poslednji Grupa",
+            teams: group.teams,
+            oddsMap: odds,
+            oddsField: "lastOdds",
+            eventDate
+          });
+          const pointsCsv = buildGroupPointsCsvRows({
+            groupName: group.name,
+            teams: group.teams,
+            oddsMap: odds,
+            eventDate
+          });
+          combinedBlock = [winnerCsv, qualifyCsv, lastCsv, pointsCsv].filter(Boolean).join("\r\n");
+        }
 
-      let pUnder = 0;
-      let pOver = 0;
-      for (const [ptsStr, prob] of Object.entries(res.pointsDistribution)) {
-        if (Number(ptsStr) < o.line) pUnder += prob;
-        else pOver += prob;
-      }
-      const fairUnder = pUnder <= 0.0001 ? 999.00 : 1 / pUnder;
-      const fairOver = pOver <= 0.0001 ? 999.00 : 1 / pOver;
+        const existing = getCsvOutput().trim();
+        let newCsv;
+        if (!existing) {
+          newCsv = `${CSV_COLUMNS.join(",")}\r\n${combinedBlock}`;
+        } else {
+          newCsv = `${existing}\r\n${combinedBlock}`;
+        }
 
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="standings-team-name">${team}</td>
-        <td class="standings-exp-pts">${res.expectedPoints.toFixed(2)}</td>
-        <td><span class="odds-value-display" data-original-price="${fairWinner}">${o.winnerOdds.toFixed(2)}</span></td>
-        <td><span class="odds-value-display" data-original-price="${fairQualify}">${o.qualifyOdds.toFixed(2)}</span></td>
-        <td><span class="odds-value-display" data-original-price="${fairLast}">${o.lastOdds.toFixed(2)}</span></td>
-        <td class="odds-value-display">${o.line.toFixed(1)}</td>
-        <td><span class="odds-value-display" data-original-price="${fairUnder}">${o.underOdds.toFixed(2)}</span></td>
-        <td><span class="odds-value-display" data-original-price="${fairOver}">${o.overOdds.toFixed(2)}</span></td>
+        const comp = getSelectedCompetition();
+        const subject = comp ? `${comp.tournamentName}_simulacija` : "simulacija";
+        const filename = `${subject.toLowerCase().replace(/[^a-z0-9]/g, "_")}_odds.csv`;
+
+        renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
+      });
+
+      actions.append(simBtn, csvBtn);
+      header.append(title, actions);
+      card.append(header);
+
+      // 4. Grid containing Standings and Matches
+      const grid = document.createElement("div");
+      grid.className = "simulation-grid";
+
+      // ─── LEFT COLUMN: Standings ───
+      const standingsCol = document.createElement("div");
+      const standingsTitle = document.createElement("h4");
+      standingsTitle.className = "simulation-section-title";
+      standingsTitle.textContent = "Tabela & Proporcije";
+      standingsCol.append(standingsTitle);
+
+      const standingsTable = document.createElement("table");
+      standingsTable.className = "standings-table";
+      standingsTable.innerHTML = `
+        <thead>
+          <tr>
+            <th>Tim</th>
+            <th>Proj Bod</th>
+            <th>Pobednik</th>
+            <th>Prolaz</th>
+            <th>Poslednji</th>
+            <th>Granica</th>
+            <th>Manje</th>
+            <th>Više</th>
+          </tr>
+        </thead>
       `;
-      standingsBody.append(tr);
-    });
-    standingsTable.append(standingsBody);
-    standingsCol.append(standingsTable);
 
-    // ─── RIGHT COLUMN: Matches ───
-    const matchesCol = document.createElement("div");
-    const matchesTitle = document.createElement("h4");
-    matchesTitle.className = "simulation-section-title";
-    matchesTitle.textContent = "Utakmice & Kvota overrides";
-    matchesCol.append(matchesTitle);
+      const standingsBody = document.createElement("tbody");
+      const sortedTeams = [...group.teams].sort((a, b) => results[b].expectedPoints - results[a].expectedPoints);
 
-    const matchesTable = document.createElement("table");
-    matchesTable.className = "matches-table";
-    matchesTable.innerHTML = `
-      <thead>
-        <tr>
-          <th>Utakmica</th>
-          <th>Kvote</th>
-        </tr>
-      </thead>
-    `;
+      sortedTeams.forEach((team) => {
+        const o = odds[team];
+        const res = results[team];
 
-    const matchesBody = document.createElement("tbody");
-    group.matches.forEach((match) => {
-      const tr = document.createElement("tr");
+        const fairWinner = res.pWinner <= 0.0001 ? 999.00 : 1 / res.pWinner;
+        const fairQualify = res.pQualify <= 0.0001 ? 999.00 : 1 / res.pQualify;
+        const fairLast = res.pLast <= 0.0001 ? 999.00 : 1 / res.pLast;
 
-      const tdMatch = document.createElement("td");
-      const teamsDiv = document.createElement("div");
-      teamsDiv.className = "match-row-teams";
-      teamsDiv.textContent = `${match.homeTeam} - ${match.awayTeam}`;
-      
-      const dateDiv = document.createElement("div");
-      dateDiv.className = "match-row-date";
-      const dateVal = match.matchDate ? new Date(match.matchDate.replace(" ", "T") + "Z") : null;
-      dateDiv.textContent = dateVal && !isNaN(dateVal.getTime()) ? datetimeFmt.format(dateVal) : (match.matchDate || "");
+        let pUnder = 0;
+        let pOver = 0;
+        for (const [ptsStr, prob] of Object.entries(res.pointsDistribution || {})) {
+          if (Number(ptsStr) < o.line) pUnder += prob;
+          else pOver += prob;
+        }
+        const fairUnder = pUnder <= 0.0001 ? 999.00 : 1 / pUnder;
+        const fairOver = pOver <= 0.0001 ? 999.00 : 1 / pOver;
 
-      tdMatch.append(teamsDiv, dateDiv);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="standings-team-name">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <span>${team}</span>
+              <button class="add-team-csv-btn icon-btn" data-team="${team}" title="Export Team CSV" style="padding: 2px; border: none; background: transparent; cursor: pointer; font-size: 11px; margin: 0;">📝</button>
+            </div>
+          </td>
+          <td class="standings-exp-pts">${res.expectedPoints.toFixed(2)}</td>
+          <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fairWinner}">${o.winnerOdds.toFixed(2)}</span></td>
+          <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fairQualify}">${o.qualifyOdds.toFixed(2)}</span></td>
+          <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fairLast}">${o.lastOdds.toFixed(2)}</span></td>
+          <td class="odds-value-display">${o.line.toFixed(1)}</td>
+          <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairUnder}">${o.underOdds.toFixed(2)}</span></td>
+          <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairOver}">${o.overOdds.toFixed(2)}</span></td>
+        `;
+        standingsBody.append(tr);
+      });
+      standingsTable.append(standingsBody);
 
-      const tdOdds = document.createElement("td");
-      const currentOdds = simulationOverrides[match.eventId] || getEventWinnerOdds(match, currentSportId);
+      standingsTable.addEventListener("click", (e) => {
+        const btn = e.target.closest(".add-team-csv-btn");
+        if (!btn) return;
 
-      const oddsGroup = document.createElement("div");
-      oddsGroup.className = "simulation-odds-input-group";
+        const teamName = btn.dataset.team;
+        const earliestMatch = group.matches[0];
+        const eventDate = earliestMatch ? earliestMatch.matchDate : "";
 
-      const createInputContainer = (label, outcome, value) => {
-        const wrap = document.createElement("div");
-        wrap.className = "sim-odds-input-container";
-        const labelSpan = document.createElement("span");
-        labelSpan.className = "sim-odds-input-label";
-        labelSpan.textContent = label;
-        const input = document.createElement("input");
-        input.type = "number";
-        input.step = "0.01";
-        input.min = "1.01";
-        input.className = "sim-odds-input";
-        input.value = value.toFixed(2);
-        input.addEventListener("input", (e) => {
-          const val = parseFloat(e.target.value);
-          if (Number.isFinite(val) && val > 0) {
-            if (!simulationOverrides[match.eventId]) {
-              simulationOverrides[match.eventId] = Object.assign({}, getEventWinnerOdds(match, currentSportId));
-            }
-            simulationOverrides[match.eventId][outcome] = val;
-          }
+        const comp = getSelectedCompetition();
+        const competitionName = comp ? comp.tournamentName : "";
+        const sifraInput = document.querySelector("#start-sifra");
+        const startSifra = sifraInput ? parseInt(sifraInput.value, 10) : 50518;
+
+        const outrightM = getOutrightMarginMultiplier();
+        const ouM = getOuMarginMultiplier();
+
+        const csvContent = buildTeamSimulationCsv({
+          teamName,
+          teamResults: results,
+          eventDate,
+          competitionName,
+          startSifra: Number.isInteger(startSifra) ? startSifra : 50518,
+          outrightMultiplier: outrightM,
+          ouMultiplier: ouM
         });
-        wrap.append(labelSpan, input);
-        return wrap;
-      };
 
-      if (currentSportId === 4) { // Basketball (no draws)
-        oddsGroup.append(
-          createInputContainer("1", "home", currentOdds.home),
-          createInputContainer("2", "away", currentOdds.away)
-        );
-      } else { // Soccer
-        oddsGroup.append(
-          createInputContainer("1", "home", currentOdds.home),
-          createInputContainer("X", "draw", currentOdds.draw),
-          createInputContainer("2", "away", currentOdds.away)
-        );
+        const existing = getCsvOutput().trim();
+        let newCsv;
+        if (!existing) {
+          newCsv = `${CSV_COLUMNS.join(",")}\r\n${csvContent}`;
+        } else {
+          newCsv = `${existing}\r\n${csvContent}`;
+        }
+
+        const filename = `${teamName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_specijali.csv`;
+        renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
+      });
+
+      standingsCol.append(standingsTable);
+
+      // ─── RIGHT COLUMN: Matches ───
+      const matchesCol = document.createElement("div");
+      const matchesTitle = document.createElement("h4");
+      matchesTitle.className = "simulation-section-title";
+      matchesTitle.textContent = "Utakmice & Kvota overrides";
+      matchesCol.append(matchesTitle);
+
+      const matchesTable = document.createElement("table");
+      matchesTable.className = "matches-table";
+      matchesTable.innerHTML = `
+        <thead>
+          <tr>
+            <th>Utakmica</th>
+            <th>Kvote</th>
+          </tr>
+        </thead>
+      `;
+
+      const matchesBody = document.createElement("tbody");
+      group.matches.forEach((match) => {
+        const tr = document.createElement("tr");
+
+        const tdMatch = document.createElement("td");
+        const teamsDiv = document.createElement("div");
+        teamsDiv.className = "match-row-teams";
+        teamsDiv.textContent = `${match.homeTeam} - ${match.awayTeam}`;
+        
+        const dateDiv = document.createElement("div");
+        dateDiv.className = "match-row-date";
+        const dateVal = match.matchDate ? new Date(match.matchDate.replace(" ", "T") + "Z") : null;
+        dateDiv.textContent = dateVal && !isNaN(dateVal.getTime()) ? datetimeFmt.format(dateVal) : (match.matchDate || "");
+
+        tdMatch.append(teamsDiv, dateDiv);
+
+        const tdOdds = document.createElement("td");
+        const currentOdds = simulationOverrides[match.eventId] || getEventWinnerOdds(match, currentSportId);
+
+        const oddsGroup = document.createElement("div");
+        oddsGroup.className = "simulation-odds-input-group";
+
+        const createInputContainer = (label, outcome, value) => {
+          const wrap = document.createElement("div");
+          wrap.className = "sim-odds-input-container";
+          const labelSpan = document.createElement("span");
+          labelSpan.className = "sim-odds-input-label";
+          labelSpan.textContent = label;
+          const input = document.createElement("input");
+          input.type = "number";
+          input.step = "0.01";
+          input.min = "1.01";
+          input.className = "sim-odds-input";
+          input.value = value.toFixed(2);
+          input.addEventListener("input", (e) => {
+            const val = parseFloat(e.target.value);
+            if (Number.isFinite(val) && val > 0) {
+              if (!simulationOverrides[match.eventId]) {
+                simulationOverrides[match.eventId] = Object.assign({}, getEventWinnerOdds(match, currentSportId));
+              }
+              simulationOverrides[match.eventId][outcome] = val;
+            }
+          });
+          wrap.append(labelSpan, input);
+          return wrap;
+        };
+
+        if (currentSportId === 4) { // Basketball (no draws)
+          oddsGroup.append(
+            createInputContainer("1", "home", currentOdds.home),
+            createInputContainer("2", "away", currentOdds.away)
+          );
+        } else { // Soccer
+          oddsGroup.append(
+            createInputContainer("1", "home", currentOdds.home),
+            createInputContainer("X", "draw", currentOdds.draw),
+            createInputContainer("2", "away", currentOdds.away)
+          );
+        }
+
+        tdOdds.append(oddsGroup);
+        tr.append(tdMatch, tdOdds);
+        matchesBody.append(tr);
+      });
+
+      matchesTable.append(matchesBody);
+      matchesCol.append(matchesTable);
+
+      grid.append(standingsCol, matchesCol);
+      card.append(grid);
+
+      // ─── ADD ADDITIONAL SOCCER MARKETS UI ───
+      if (groupOdds && currentSportId === 5) {
+        const details = document.createElement("details");
+        details.className = "simulation-additional-markets";
+        details.style.marginTop = "16px";
+        details.style.borderTop = "1px solid var(--line)";
+        details.style.paddingTop = "12px";
+
+        const summary = document.createElement("summary");
+        summary.style.cursor = "pointer";
+        summary.style.fontWeight = "600";
+        summary.style.fontSize = "13px";
+        summary.style.color = "var(--accent)";
+        summary.style.display = "flex";
+        summary.style.alignItems = "center";
+        summary.style.gap = "6px";
+        summary.innerHTML = "<span>📊</span> <span>Prikaži dodatne igre (Tačan poredak, Prva dva, Golovi...)</span>";
+        details.append(summary);
+
+        const content = document.createElement("div");
+        content.style.marginTop = "12px";
+        content.style.display = "grid";
+        content.style.gridTemplateColumns = "repeat(auto-fit, minmax(280px, 1fr))";
+        content.style.gap = "16px";
+
+        // Column 1: Forecast & Top 2 & Outrights
+        const col1 = document.createElement("div");
+        col1.innerHTML = `<h5 style="margin: 0 0 8px; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Poredak i Specijali</h5>`;
+        
+        const col1Table = document.createElement("table");
+        col1Table.className = "standings-table";
+        col1Table.style.width = "100%";
+        col1Table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Opklada</th>
+              <th>Kvota</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        `;
+        const col1Body = col1Table.querySelector("tbody");
+
+        const getFair = (prob) => (prob <= 0.0001 ? 999.00 : 1 / prob);
+        const outrights = [
+          { label: "Bilo koji tim: 9 bodova", price: groupOdds.any9PtsOdds, fair: getFair(gRes.pAny9Pts) },
+          { label: "Bilo koji tim: 0 bodova", price: groupOdds.any0PtsOdds, fair: getFair(gRes.pAny0Pts) },
+          { label: "Treće mesto: ide dalje", price: groupOdds.thirdQualifiesOdds, fair: getFair(gRes.pThirdQualifies) }
+        ];
+        for (const item of outrights) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${item.label}</td>
+            <td><span class="odds-value-display" data-market-type="outright" data-original-price="${item.fair}">${item.price.toFixed(2)}</span></td>
+          `;
+          col1Body.append(tr);
+        }
+
+        const sortedTopTwoTeams = [...group.teams].sort();
+        for (let i = 0; i < sortedTopTwoTeams.length; i++) {
+          for (let j = i + 1; j < sortedTopTwoTeams.length; j++) {
+            const t1 = sortedTopTwoTeams[i];
+            const t2 = sortedTopTwoTeams[j];
+            const key = `${t1}|${t2}`;
+            const price = groupOdds.topTwo[key] ?? 999.00;
+            const fair = getFair(gRes.topTwo[key]);
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>Prva dva: ${t1}/${t2}</td>
+              <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+            `;
+            col1Body.append(tr);
+          }
+        }
+        col1.append(col1Table);
+
+        // Column 2: Exact Forecast
+        const col2 = document.createElement("div");
+        col2.innerHTML = `<h5 style="margin: 0 0 8px; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Tačan poredak (1. / 2. mesto)</h5>`;
+        
+        const col2Table = document.createElement("table");
+        col2Table.className = "standings-table";
+        col2Table.style.width = "100%";
+        col2Table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Poredak</th>
+              <th>Kvota</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        `;
+        const col2Body = col2Table.querySelector("tbody");
+
+        for (const t1 of group.teams) {
+          for (const t2 of group.teams) {
+            if (t1 === t2) continue;
+            const key = `${t1}|${t2}`;
+            const price = groupOdds.exactForecast[key] ?? 999.00;
+            const fair = getFair(gRes.exactForecast[key]);
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>1. ${t1} / 2. ${t2}</td>
+              <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+            `;
+            col2Body.append(tr);
+          }
+        }
+        col2.append(col2Table);
+
+        // Column 3: Group Goals, Draws, Match Stats, Winner/Last Points & Most Goals
+        const col3 = document.createElement("div");
+        col3.innerHTML = `<h5 style="margin: 0 0 8px; color: var(--text-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">Golovi, Bodovi i Najefikasniji</h5>`;
+        
+        const col3Table = document.createElement("table");
+        col3Table.className = "standings-table";
+        col3Table.style.width = "100%";
+        col3Table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Igra</th>
+              <th>Granica</th>
+              <th>Manje</th>
+              <th>Više</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        `;
+        const col3Body = col3Table.querySelector("tbody");
+
+        const tg = groupOdds.totalGoals;
+        const getFairOu = (line, distribution) => {
+          let pUnder = 0;
+          let pOver = 0;
+          for (const [valStr, prob] of Object.entries(distribution || {})) {
+            const val = Number(valStr);
+            if (val < line) pUnder += prob;
+            else pOver += prob;
+          }
+          const fairUnder = pUnder <= 0.0001 ? 999.00 : 1 / pUnder;
+          const fairOver = pOver <= 0.0001 ? 999.00 : 1 / pOver;
+          return { fairUnder, fairOver };
+        };
+
+        const addOuRow = (label, line, oddsObj, distribution) => {
+          const tr = document.createElement("tr");
+          const { fairUnder, fairOver } = getFairOu(line, distribution);
+          tr.innerHTML = `
+            <td>${label}</td>
+            <td>${line.toFixed(1)}</td>
+            <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairUnder}">${oddsObj.underOdds.toFixed(2)}</span></td>
+            <td><span class="odds-value-display" data-market-type="ou" data-original-price="${fairOver}">${oddsObj.overOdds.toFixed(2)}</span></td>
+          `;
+          col3Body.append(tr);
+        };
+        
+        addOuRow("Ukupno golova 1", tg.line1, tg.odds1, gRes.goalsDistribution);
+        addOuRow("Ukupno golova 2", tg.line2, tg.odds2, gRes.goalsDistribution);
+        addOuRow("Ukupno golova 3", tg.line3, tg.odds3, gRes.goalsDistribution);
+
+        const td = groupOdds.totalDraws;
+        addOuRow("Ukupno nerešenih", td.line, td, gRes.drawsDistribution);
+
+        const m3 = groupOdds.matches3Plus;
+        addOuRow("Broj mečeva 3+", m3.line, m3, gRes.matches3PlusDistribution);
+
+        const m00 = groupOdds.matches00;
+        addOuRow("Broj mečeva 0-0", m00.line, m00, gRes.matches00Distribution);
+
+        const mGG = groupOdds.matchesGG;
+        addOuRow("Broj mečeva GG", mGG.line, mGG, gRes.matchesGGDistribution);
+
+        const wp = groupOdds.winnerPoints;
+        addOuRow("Bodovi prvoplasiranog", wp.line, wp, gRes.winnerPointsDistribution);
+
+        const lp = groupOdds.lastPoints;
+        addOuRow("Bodovi poslednjeg", lp.line, lp, gRes.lastPointsDistribution);
+
+        col3.append(col3Table);
+
+        const col3EfficientTitle = document.createElement("h5");
+        col3EfficientTitle.style.margin = "16px 0 8px";
+        col3EfficientTitle.style.color = "var(--text-2)";
+        col3EfficientTitle.style.fontSize = "11px";
+        col3EfficientTitle.style.textTransform = "uppercase";
+        col3EfficientTitle.style.letterSpacing = "0.05em";
+        col3EfficientTitle.textContent = "Najefikasniji tim u grupi";
+        col3.append(col3EfficientTitle);
+
+        const col3EfficientTable = document.createElement("table");
+        col3EfficientTable.className = "standings-table";
+        col3EfficientTable.style.width = "100%";
+        col3EfficientTable.innerHTML = `
+          <thead>
+            <tr>
+              <th>Tim</th>
+              <th>Kvota</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        `;
+        const col3EfficientBody = col3EfficientTable.querySelector("tbody");
+        for (const team of group.teams) {
+          const price = odds[team].mostGoalsOdds;
+          const fair = getFair(teamResults[team].pMostGoals);
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${team}</td>
+            <td><span class="odds-value-display" data-market-type="outright" data-original-price="${fair}">${price.toFixed(2)}</span></td>
+          `;
+          col3EfficientBody.append(tr);
+        }
+        col3.append(col3EfficientTable);
+
+        content.append(col1, col2, col3);
+        details.append(content);
+        card.append(details);
       }
 
-      tdOdds.append(oddsGroup);
-      tr.append(tdMatch, tdOdds);
-      matchesBody.append(tr);
+      container.append(card);
     });
-
-    matchesTable.append(matchesBody);
-    matchesCol.append(matchesTable);
-
-    grid.append(standingsCol, matchesCol);
-    card.append(grid);
-    container.append(card);
-  });
+  }
 
   elements.marketsList.replaceChildren(container);
 }

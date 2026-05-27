@@ -566,3 +566,310 @@ export function buildGroupPointsCsvRows({ groupName, teams, oddsMap, eventDate }
   return rows.join("\r\n");
 }
 
+/**
+ * Builds a comprehensive CSV block containing all group outrights, forecast, top 2, and Over/Under markets.
+ */
+export function buildFullGroupSimulationCsv({ group, teamOdds, groupOdds, eventDate, competitionName, startSifra = 50049 }) {
+  const { date, time } = formatEventDateTime(eventDate);
+  const groupLetter = group.name.replace("Grupa ", "");
+  
+  let currentSifra = Number.isInteger(startSifra) ? startSifra : 50049;
+  const rows = [];
+  
+  // MATCH_NAME: World Cup 2026
+  const compName = competitionName || "World Cup 2026";
+  rows.push(formatCsvRow([`MATCH_NAME:${compName}`]));
+  // LEAGUE_NAME: Grupa A
+  rows.push(formatCsvRow([`LEAGUE_NAME:${group.name}`]));
+
+  // Helper to build a single outright row
+  const makeOutrightRow = (domacin, gost, price) => {
+    const sifraStr = currentSifra.toString();
+    currentSifra++;
+    return formatCsvRow([
+      date,
+      time,
+      sifraStr,
+      toAsciiMarketName(domacin),
+      toAsciiMarketName(gost),
+      formatPrice(price),
+      "", "", "", "", "", "", ""
+    ]);
+  };
+
+  // Helper to build a single statistika O/U row
+  const makeStatistikaRow = (domacin, gost, line, underPrice, overPrice) => {
+    const sifraStr = currentSifra.toString();
+    currentSifra++;
+    return formatCsvRow([
+      date,
+      time,
+      sifraStr,
+      toAsciiMarketName(domacin),
+      toAsciiMarketName(gost),
+      "",
+      "",
+      "",
+      formatPrice(line),
+      formatPrice(underPrice),
+      formatPrice(overPrice),
+      "",
+      ""
+    ]);
+  };
+
+  // 1. Pobednik grupe (one row for each team, in original team order)
+  for (const team of group.teams) {
+    const price = teamOdds[team].winnerOdds;
+    rows.push(makeOutrightRow(team, "Pobednik grupe", price));
+  }
+
+  // 2. Tacan poredak (sorted by price ascending)
+  if (groupOdds && groupOdds.exactForecast) {
+    const forecastList = [];
+    for (const t1 of group.teams) {
+      for (const t2 of group.teams) {
+        if (t1 === t2) continue;
+        const key = `${t1}|${t2}`;
+        const price = groupOdds.exactForecast[key] ?? 999.00;
+        forecastList.push({ domacin: `${t1}/${t2}`, gost: "Tacan poredak", price });
+      }
+    }
+    // Sort by price ascending
+    forecastList.sort((a, b) => a.price - b.price);
+    for (const item of forecastList) {
+      rows.push(makeOutrightRow(item.domacin, item.gost, item.price));
+    }
+  }
+
+  // 3. Prva dva u grupi (sorted by price ascending)
+  if (groupOdds && groupOdds.topTwo) {
+    const topTwoList = [];
+    const sortedTeams = [...group.teams].sort();
+    for (let i = 0; i < sortedTeams.length; i++) {
+      for (let j = i + 1; j < sortedTeams.length; j++) {
+        const t1 = sortedTeams[i];
+        const t2 = sortedTeams[j];
+        const key = `${t1}|${t2}`;
+        const price = groupOdds.topTwo[key] ?? 999.00;
+        topTwoList.push({ domacin: `${t1}/${t2}`, gost: "Prva dva u grupi", price });
+      }
+    }
+    // Sort by price ascending
+    topTwoList.sort((a, b) => a.price - b.price);
+    for (const item of topTwoList) {
+      rows.push(makeOutrightRow(item.domacin, item.gost, item.price));
+    }
+  }
+
+  // 4. Bilo koji tim 9 bodova, 0 bodova, Trece mesto ide dalje
+  if (groupOdds) {
+    rows.push(makeOutrightRow("Bilo koji tim", "9 bodova", groupOdds.any9PtsOdds));
+    rows.push(makeOutrightRow("Bilo koji tim", "0 bodova", groupOdds.any0PtsOdds));
+    rows.push(makeOutrightRow("Trece mesto", "ide dalje", groupOdds.thirdQualifiesOdds));
+  }
+
+  // 5. Statistika (Over/Under) rows
+  // NOTE: According to the requested structure image, the individual team points (e.g. "Ukupno bodova - <team>")
+  // are NOT included in the group CSV. So we omit them here.
+  if (groupOdds) {
+    if (groupOdds.totalGoals) {
+      const tg = groupOdds.totalGoals;
+      rows.push(makeStatistikaRow("Ukupno golova1", `u grupi ${groupLetter}`, tg.line1, tg.odds1.underOdds, tg.odds1.overOdds));
+      rows.push(makeStatistikaRow("Ukupno golova2", `u grupi ${groupLetter}`, tg.line2, tg.odds2.underOdds, tg.odds2.overOdds));
+      rows.push(makeStatistikaRow("Ukupno golova3", `u grupi ${groupLetter}`, tg.line3, tg.odds3.underOdds, tg.odds3.overOdds));
+    }
+
+    if (groupOdds.totalDraws) {
+      const td = groupOdds.totalDraws;
+      rows.push(makeStatistikaRow("Ukupno neresenih", `u grupi ${groupLetter}`, td.line, td.underOdds, td.overOdds));
+    }
+
+    if (groupOdds.matches3Plus) {
+      const m3 = groupOdds.matches3Plus;
+      rows.push(makeStatistikaRow("Broj meceva", "3+ golova", m3.line, m3.underOdds, m3.overOdds));
+    }
+    if (groupOdds.matches00) {
+      const m00 = groupOdds.matches00;
+      rows.push(makeStatistikaRow("Broj meceva", "0-0", m00.line, m00.underOdds, m00.overOdds));
+    }
+    if (groupOdds.matchesGG) {
+      const mGG = groupOdds.matchesGG;
+      rows.push(makeStatistikaRow("Broj meceva", "GG", mGG.line, mGG.underOdds, mGG.overOdds));
+    }
+
+    if (groupOdds.winnerPoints) {
+      const wp = groupOdds.winnerPoints;
+      rows.push(makeStatistikaRow("Uk. bodova", "Prvoplasirani tim", wp.line, wp.underOdds, wp.overOdds));
+    }
+    if (groupOdds.lastPoints) {
+      const lp = groupOdds.lastPoints;
+      rows.push(makeStatistikaRow("Uk. bodova", "Poslednjeplasiran tim", lp.line, lp.underOdds, lp.overOdds));
+    }
+  }
+
+  // 6. Najefikasniji tim u grupi (one row for each team in original team order)
+  for (const team of group.teams) {
+    const price = teamOdds[team].mostGoalsOdds;
+    rows.push(makeOutrightRow(team, "Najefikasniji tim u grupi", price));
+  }
+
+  return rows.join("\r\n");
+}
+
+export function buildTeamSimulationCsv({ teamName, teamResults, eventDate, competitionName, startSifra = 50518, outrightMultiplier = 1, ouMultiplier = 1 }) {
+  const { date, time } = formatEventDateTime(eventDate);
+  const res = teamResults[teamName];
+  if (!res) return "";
+
+  let currentSifra = Number.isInteger(startSifra) ? startSifra : 50518;
+  const rows = [];
+
+  // MATCH_NAME: World Cup 2026
+  const compName = competitionName || "World Cup 2026";
+  rows.push(formatCsvRow([`MATCH_NAME:${compName}`]));
+  // LEAGUE_NAME: Mexico
+  rows.push(formatCsvRow([`LEAGUE_NAME:${teamName}`]));
+
+  // Helper to format prices with margin
+  const makeOutrightPrice = (prob) => {
+    if (prob <= 0.0001) return 999.00;
+    const fair = 1 / prob;
+    return (fair * outrightMultiplier);
+  };
+
+  const makeOuPrice = (prob) => {
+    if (prob <= 0.0001) return 999.00;
+    const fair = 1 / prob;
+    return (fair * ouMultiplier);
+  };
+
+  // Helper to build a single outright row
+  const makeOutrightRow = (gost, prob) => {
+    if (prob === undefined || prob === null) return "";
+    const price = makeOutrightPrice(prob);
+    const sifraStr = currentSifra.toString();
+    currentSifra++;
+    return formatCsvRow([
+      date,
+      time,
+      sifraStr,
+      toAsciiMarketName(teamName),
+      toAsciiMarketName(gost),
+      formatPrice(price),
+      "", "", "", "", "", "", ""
+    ]);
+  };
+
+  // Helper to build Over/Under row with explicit line
+  const makeExplicitOuRow = (gost, line, distribution) => {
+    if (!distribution) return "";
+    let pUnder = 0;
+    let pOver = 0;
+    for (const [valStr, prob] of Object.entries(distribution)) {
+      const val = Number(valStr);
+      if (val < line) pUnder += prob;
+      else pOver += prob;
+    }
+    
+    const underPrice = makeOuPrice(pUnder);
+    const overPrice = makeOuPrice(pOver);
+    const sifraStr = currentSifra.toString();
+    currentSifra++;
+    return formatCsvRow([
+      date,
+      time,
+      sifraStr,
+      toAsciiMarketName(teamName),
+      toAsciiMarketName(gost),
+      "",
+      "",
+      "",
+      formatPrice(line),
+      formatPrice(underPrice),
+      formatPrice(overPrice),
+      "",
+      ""
+    ]);
+  };
+
+  // 1. Outright rows
+  rows.push(makeOutrightRow("Pobednik", res.pTournamentWinner));
+  rows.push(makeOutrightRow("Pobednik grupe", res.p1stPlace));
+  rows.push(makeOutrightRow("2. mesto u grupi", res.p2ndPlace));
+  rows.push(makeOutrightRow("3. mesto u grupi", res.p3rdPlace));
+  rows.push(makeOutrightRow("4. mesto u grupi", res.p4thPlace));
+  rows.push(makeOutrightRow("prolazi grupu", res.pReachesR32));
+  rows.push(makeOutrightRow("Ne prolazi grupu", 1 - res.pReachesR32));
+  rows.push(makeOutrightRow("Prolazi dalje", res.pReachesR16));
+  rows.push(makeOutrightRow("eliminacija u 1/16 finala", res.pEliminatedR32));
+  rows.push(makeOutrightRow("eliminacija u 1/8 finala", res.pEliminatedR16));
+  rows.push(makeOutrightRow("eliminacija u 1/4 finala", res.pEliminatedQF));
+  rows.push(makeOutrightRow("eliminacija u 1/2 finala", res.pEliminatedSF));
+  rows.push(makeOutrightRow("eliminacija u finalu", res.pEliminatedFinal));
+  rows.push(makeOutrightRow("dolazi do 1/16 finala", res.pReachesR32));
+  rows.push(makeOutrightRow("dolazi do 1/8 finala", res.pReachesR16));
+  rows.push(makeOutrightRow("dolazi do 1/4 finala", res.pReachesQF));
+  rows.push(makeOutrightRow("dolazi do 1/2 finala", res.pReachesSF));
+  rows.push(makeOutrightRow("dolazi do finala", res.pReachesFinal));
+
+  // 2. Points distributions
+  const dist = res.pointsDistribution || res.pointsGroupDistribution || {};
+  rows.push(makeOutrightRow("0 bodova u grupi", dist[0] || 0));
+  rows.push(makeOutrightRow("1 bodova u grupi", dist[1] || 0));
+  rows.push(makeOutrightRow("2 bodova u grupi", dist[2] || 0));
+  rows.push(makeOutrightRow("3 bodova u grupi", dist[3] || 0));
+  rows.push(makeOutrightRow("4 bodova u grupi", dist[4] || 0));
+  rows.push(makeOutrightRow("5 bodova u grupi", dist[5] || 0));
+  rows.push(makeOutrightRow("6 bodova u grupi", dist[6] || 0));
+  rows.push(makeOutrightRow("7 bodova u grupi", dist[7] || 0));
+  rows.push(makeOutrightRow("9 bodova u grupi", dist[9] || 0));
+
+  // Points ranges
+  rows.push(makeOutrightRow("1-3 boda u grupi", (dist[1]||0) + (dist[2]||0) + (dist[3]||0)));
+  rows.push(makeOutrightRow("2-4 boda u grupi", (dist[2]||0) + (dist[3]||0) + (dist[4]||0)));
+  rows.push(makeOutrightRow("4-6 bodova u grupi", (dist[4]||0) + (dist[5]||0) + (dist[6]||0)));
+  rows.push(makeOutrightRow("7+ bodova u grupi", (dist[7]||0) + (dist[9]||0)));
+
+  // Points Over/Under
+  rows.push(makeExplicitOuRow("osvojenih bodova u grupi1", 5.5, dist));
+  rows.push(makeExplicitOuRow("osvojenih bodova u grupi2", 6.5, dist));
+  rows.push(makeExplicitOuRow("osvojenih bodova u grupi3", 4.5, dist));
+
+  // Goals Scored Over/Under
+  const gsDist = res.goalsScoredGroupDistribution || {};
+  rows.push(makeExplicitOuRow("datih golova u grupi1", 4.5, gsDist));
+  rows.push(makeExplicitOuRow("datih golova u grupi2", 5.5, gsDist));
+  rows.push(makeExplicitOuRow("datih golova u grupi3", 3.5, gsDist));
+
+  // Goals Scored Ranges u grupi
+  rows.push(makeOutrightRow("1-2 datih golova u grupi", (gsDist[1]||0) + (gsDist[2]||0)));
+  rows.push(makeOutrightRow("1-3 datih golova u grupi", (gsDist[1]||0) + (gsDist[2]||0) + (gsDist[3]||0)));
+  rows.push(makeOutrightRow("2-4 datih golova u grupi", (gsDist[2]||0) + (gsDist[3]||0) + (gsDist[4]||0)));
+  rows.push(makeOutrightRow("4-6 datih golova u grupi", (gsDist[4]||0) + (gsDist[5]||0) + (gsDist[6]||0)));
+  rows.push(makeOutrightRow("5-7 datih golova u grupi", (gsDist[5]||0) + (gsDist[6]||0) + (gsDist[7]||0)));
+
+  // Goals Conceded Over/Under
+  const gcDist = res.goalsConcededGroupDistribution || {};
+  rows.push(makeExplicitOuRow("primljenih golova u grupi1", 2.5, gcDist));
+  rows.push(makeExplicitOuRow("primljenih golova u grupi2", 3.5, gcDist));
+  rows.push(makeExplicitOuRow("primljenih golova u grupi3", 1.5, gcDist));
+
+  // Miscellaneous group markets
+  rows.push(makeOutrightRow("Najvise datih golova u grupi", res.pMostGoalsGroup !== undefined ? res.pMostGoalsGroup : res.pMostGoals));
+  rows.push(makeOutrightRow("Najvise primljenih golova u grupi", res.pMostConcededGroup !== undefined ? res.pMostConcededGroup : res.pMostConceded));
+  rows.push(makeOutrightRow("Daje gol na svakom mecu u grupi", res.scoredInAllGroup));
+  rows.push(makeOutrightRow("Bez poraza u grupi", res.noLossesGroup));
+  rows.push(makeOutrightRow("Prima gol na svakom mecu u grupi", res.concededInAllGroup));
+
+  // Wins and draws Over/Under
+  rows.push(makeExplicitOuRow("broj pobeda u grupi", 1.5, res.winsGroupDistribution));
+  rows.push(makeExplicitOuRow("broj neresenih u grupi", 0.5, res.drawsGroupDistribution));
+
+  // Tournament goals scored
+  rows.push(makeExplicitOuRow("broj datih golova na turniru", 7.5, res.totalGoalsTournamentDistribution));
+
+  return rows.filter(Boolean).join("\r\n");
+}
+
+

@@ -6,7 +6,8 @@ import {
   getElements,
   getCsvOutput,
   getCurrentCsvFilename,
-  getMarginMultiplier,
+  getOutrightMarginMultiplier,
+  getOuMarginMultiplier,
   refreshDisplayedPrices,
   initMarketTabs,
   renderMarkets,
@@ -112,7 +113,8 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   const event = getSelectedEvent();
   if (!event) return;
 
-  const m = getMarginMultiplier();
+  const type = button.dataset.marketType || "ou";
+  const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
   const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
   if (!row) return;
@@ -191,7 +193,8 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   const event = getSelectedEvent();
   if (!event) return;
 
-  const m = getMarginMultiplier();
+  const type = button.dataset.marketType || "outright";
+  const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
   // Always compute the plain data row — we store it for later removal
   const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd });
@@ -251,7 +254,8 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
   const event = getSelectedEvent();
   if (!event) return;
 
-  const m = getMarginMultiplier();
+  const type = button.dataset.marketType || "ou";
+  const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedMarket = m !== 1
     ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
     : market;
@@ -323,7 +327,6 @@ function clearCsvIfNoSelections(event) {
 }
 
 function applyMargin() {
-  const multiplier = getMarginMultiplier();
   let csv = getCsvOutput();
   if (!csv) return;
 
@@ -332,6 +335,8 @@ function applyMargin() {
     if (!Number.isFinite(originalPrice)) continue;
     const oldRow = btn.dataset.csvRow;
     const cols = oldRow.split(",");
+    const type = btn.dataset.marketType || "outright";
+    const multiplier = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
     cols[5] = (originalPrice * multiplier).toFixed(2);
     const newRow = cols.join(",");
     csv = csv.replace(oldRow, newRow);
@@ -343,6 +348,8 @@ function applyMargin() {
     const cols = oldRow.split(",");
     const priceU = parseFloat(btn.dataset.originalPriceU);
     const priceO = parseFloat(btn.dataset.originalPriceO);
+    const type = btn.dataset.marketType || "ou";
+    const multiplier = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
     if (Number.isFinite(priceU)) cols[9]  = (priceU * multiplier).toFixed(2);
     if (Number.isFinite(priceO)) cols[10] = (priceO * multiplier).toFixed(2);
     const newRow = cols.join(",");
@@ -356,8 +363,18 @@ function applyMargin() {
 }
 
 document.querySelector("#margin-apply").addEventListener("click", applyMargin);
-document.querySelector("#margin-pct").addEventListener("input", () => { applyMargin(); refreshDisplayedPrices(); });
-document.querySelectorAll('input[name="margin-dir"]').forEach((r) => r.addEventListener("change", () => { applyMargin(); refreshDisplayedPrices(); }));
+
+const marginPctOutright = document.querySelector("#margin-pct-outright");
+if (marginPctOutright) {
+  marginPctOutright.addEventListener("input", () => { applyMargin(); refreshDisplayedPrices(); });
+}
+const marginPctOu = document.querySelector("#margin-pct-ou");
+if (marginPctOu) {
+  marginPctOu.addEventListener("input", () => { applyMargin(); refreshDisplayedPrices(); });
+}
+
+document.querySelectorAll('input[name="margin-dir-outright"]').forEach((r) => r.addEventListener("change", () => { applyMargin(); refreshDisplayedPrices(); }));
+document.querySelectorAll('input[name="margin-dir-ou"]').forEach((r) => r.addEventListener("change", () => { applyMargin(); refreshDisplayedPrices(); }));
 
 loadCompetitions();
 initMarketTabs();

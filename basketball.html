@@ -119,24 +119,44 @@
 
           <!-- CSV toolbar -->
           <div class="csv-panel" aria-label="CSV output">
-            <div class="margin-control">
-              <span class="field-label">Promeni kvote</span>
-              <label class="margin-radio">
-                <input type="radio" name="margin-dir" id="margin-decrease" value="decrease" checked>
-                <span>Smanji za</span>
-              </label>
-              <label class="margin-radio">
-                <input type="radio" name="margin-dir" id="margin-increase" value="increase">
-                <span>Povećaj za</span>
-              </label>
-              <input id="margin-pct" class="margin-pct-input" type="number" min="0" max="99" step="0.1" placeholder="%">
-              <button id="margin-apply" class="action-btn action-btn--secondary" type="button">Primeni</button>
+            <div class="margin-control" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; width: 100%;">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-bottom: 1px dashed var(--line); padding-bottom: 8px;">
+                <span class="field-label" style="min-width: 110px;">Margin Outrights</span>
+                <label class="margin-radio">
+                  <input type="radio" name="margin-dir-outright" id="margin-decrease-outright" value="decrease" checked>
+                  <span>Smanji za</span>
+                </label>
+                <label class="margin-radio">
+                  <input type="radio" name="margin-dir-outright" id="margin-increase-outright" value="increase">
+                  <span>Povećaj za</span>
+                </label>
+                <input id="margin-pct-outright" class="margin-pct-input" type="number" min="0" max="99" step="0.1" placeholder="%">
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 4px;">
+                <span class="field-label" style="min-width: 110px;">Margin O/U</span>
+                <label class="margin-radio">
+                  <input type="radio" name="margin-dir-ou" id="margin-decrease-ou" value="decrease" checked>
+                  <span>Smanji za</span>
+                </label>
+                <label class="margin-radio">
+                  <input type="radio" name="margin-dir-ou" id="margin-increase-ou" value="increase">
+                  <span>Povećaj za</span>
+                </label>
+                <input id="margin-pct-ou" class="margin-pct-input" type="number" min="0" max="99" step="0.1" placeholder="%">
+                <button id="margin-apply" class="action-btn action-btn--secondary" type="button" style="margin-left: auto;">Primeni</button>
+              </div>
             </div>
-            <div class="csv-actions">
+            <div class="csv-actions" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
               <button id="dodaj-default-button" class="action-btn action-btn--secondary" type="button" disabled>
                 Dodaj default
               </button>
-              <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled>
+              
+              <label id="start-sifra-container" class="field field--inline" style="margin: 0; display: none; align-items: center; gap: 6px;">
+                <span class="field-label" style="font-size: 11px;">Početna šifra</span>
+                <input id="start-sifra" class="margin-pct-input" type="number" value="50049" style="width: 75px; height: 28px; padding: 2px 6px; font-size: 12px; margin: 0; text-align: center;">
+              </label>
+
+              <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled style="margin-left: auto;">
                 <span class="btn-icon">⤓</span> Download
               </button>
               <button id="clear-csv-button" class="action-btn action-btn--danger" type="button" disabled>
