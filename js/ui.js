@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -266,6 +266,10 @@ export function renderMarkets(markets) {
   if (homeTab) homeTab.textContent = currentEvent?.homeTeam || "Dom. igrači";
   if (awayTab) awayTab.textContent = currentEvent?.awayTeam || "Gost. igrači";
   elements.csvStatus.textContent = "Use + buttons to add markets";
+
+  // Auto-check default statistika markets on render
+  addDefaultStatistikaMarkets();
+
   renderMarketsForCurrentFilter();
 }
 
@@ -391,7 +395,19 @@ export async function renderMarketsForCurrentFilter() {
     return;
   }
 
-  elements.marketsList.replaceChildren(...visible.map(createMarketCard));
+  // Sort visible: selected default markets on top
+  const selectedDefaults = [];
+  const others = [];
+  for (const m of visible) {
+    if (isDefaultStatistikaMarket(m.marketName) && isMarketSelected(m)) {
+      selectedDefaults.push(m);
+    } else {
+      others.push(m);
+    }
+  }
+  const sortedVisible = [...selectedDefaults, ...others];
+
+  elements.marketsList.replaceChildren(...sortedVisible.map(createMarketCard));
 }
 
 /**
@@ -540,6 +556,14 @@ export function initMarketTabs() {
     marketSearch = searchInput.value.trim();
     renderMarketsForCurrentFilter();
   });
+
+  // Re-sort and render markets list when items are added/removed
+  document.addEventListener("add-odd-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("remove-odd-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("add-specijal-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("remove-specijal-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("add-statistika-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("remove-statistika-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
 }
 
 
@@ -632,6 +656,65 @@ function isDefaultPlayerMarketTennis(marketName) {
 function isDefaultPlayerMarketBasketball(marketName) {
   const n = normalizeSearchText(marketName);
   return n.includes("poena") || n.includes("asistenc") || n.includes("skok") || n.includes("trojk") || n.includes("3 poen");
+}
+
+function isDefaultStatistikaMarket(marketName) {
+  if (!currentEvent) return false;
+  const home = currentEvent.homeTeam || "";
+  const away = currentEvent.awayTeam || "";
+  const bases = currentSportId === 4
+    ? BASKETBALL_DEFAULT_MARKET_BASES
+    : currentSportId === 2
+      ? TENNIS_DEFAULT_MARKET_BASES
+      : DEFAULT_MARKET_BASES;
+  const specNorm = normalizeSearchText(marketName);
+  return bases.some((base) => {
+    if (base.includes("{home}") && !home) return false;
+    if (base.includes("{away}") && !away) return false;
+    const resolved = base.replace("{home}", home).replace("{away}", away);
+    return normalizeSearchText(resolved) === specNorm;
+  });
+}
+
+function isMarketSelected(market) {
+  const csv = elements.csvOutput.value;
+  if (!csv) return false;
+  
+  const isCombo = isMarketCombo(market);
+  const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
+  const isSplitStatistika = isStatistika && market.odds.length >= 3;
+  
+  if (isStatistika && !isSplitStatistika) {
+    const type = "ou";
+    const m = getOuMarginMultiplier();
+    const adjustedMarket = m !== 1
+      ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
+      : market;
+    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+    return csvContainsRow(csv, row);
+  } else {
+    return market.odds.some((o) => {
+      const type = "outright";
+      const m = getOutrightMarginMultiplier();
+      const adjustedOdd = m !== 1 ? { ...o, price: o.price * m } : o;
+      const row = buildSpecijalRow({ event: currentEvent, marketName: market.marketName, odd: adjustedOdd });
+      return csvContainsRow(csv, row);
+    });
+  }
+}
+
+function isPlayerOddSelected(marketName, odd) {
+  const csv = elements.csvOutput.value;
+  if (!csv) return false;
+  
+  const event = currentEvent;
+  if (!event) return false;
+  
+  const type = "ou";
+  const m = getOuMarginMultiplier();
+  const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
+  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+  return csvContainsRow(csv, row);
 }
 
 
@@ -747,7 +830,16 @@ function createPlayerGroupCard(query, matches, side) {
   title.textContent = query;
   count.textContent = `${matches.length} odds`;
   chevron.textContent = "›";
-  oddsList.append(...matches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
+  const sortedMatches = [...matches].sort((a, b) => {
+    const aDefault = isDefaultPlayerMarket(a.marketName);
+    const bDefault = isDefaultPlayerMarket(b.marketName);
+    const aSelected = isPlayerOddSelected(a.marketName, a.odd);
+    const bSelected = isPlayerOddSelected(b.marketName, b.odd);
+    const aVal = (aDefault && aSelected) ? 1 : 0;
+    const bVal = (bDefault && bSelected) ? 1 : 0;
+    return bVal - aVal;
+  });
+  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
 
   header.addEventListener("click", () => card.classList.toggle("is-expanded"));
 
@@ -802,15 +894,66 @@ function createPlayerOddRow(marketName, odd) {
   addButton.className = "add-odd-button";
   addButton.type = "button";
   addButton.title = "Add to CSV";
-  addButton.textContent = "+";
   addButton.dataset.marketName = marketName;
   addButton.dataset.marketType = "ou";
-  price.className = "player-odd-price";
+  price.className = "player-odd-price player-odd-price--editable";
+  price.contentEditable = "true";
+  price.spellcheck = false;
+  
+  price.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+  
+  price.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      price.blur();
+    }
+  });
+
+  price.addEventListener("blur", () => {
+    const newPrice = parseFloat(price.textContent.trim());
+    if (Number.isFinite(newPrice)) {
+      const pM = getOuMarginMultiplier();
+      odd.price = newPrice / pM;
+      price.dataset.originalPrice = odd.price;
+      
+      if (addButton.classList.contains("is-added")) {
+        const oldRow = addButton.dataset.csvRow;
+        const event = currentEvent;
+        const adjustedOdd = pM !== 1 ? { ...odd, price: odd.price * pM } : odd;
+        const newRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+        if (newRow && oldRow && newRow !== oldRow) {
+          addButton.dataset.csvRow = newRow;
+          addButton.dataset.originalPrice = odd.price;
+          document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: addButton } }));
+        }
+      }
+    } else {
+      const pM = getOuMarginMultiplier();
+      price.textContent = Number.isFinite(odd.price) ? (odd.price * pM).toFixed(2) : "-";
+    }
+  });
+
   market.textContent = marketName;
   name.textContent = odd.name;
   price.dataset.marketType = "ou";
   price.dataset.originalPrice = odd.price;
   price.textContent = Number.isFinite(odd.price) ? (odd.price * getOuMarginMultiplier()).toFixed(2) : "-";
+
+  const event = currentEvent;
+  const pM = getOuMarginMultiplier();
+  const adjustedOdd = pM !== 1 ? { ...odd, price: odd.price * pM } : odd;
+  const pRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+  if (csvContainsRow(elements.csvOutput.value, pRow)) {
+    addButton.classList.add("is-added");
+    addButton.textContent = "✓";
+    addButton.title = "Remove from CSV";
+    addButton.dataset.csvRow = pRow;
+    addButton.dataset.originalPrice = odd.price;
+  } else {
+    addButton.textContent = "+";
+  }
 
   addButton.addEventListener("click", () => {
     if (addButton.classList.contains("is-added")) {
@@ -938,7 +1081,27 @@ function createMarketCard(market) {
     addBtn.dataset.marketUuid = market.uuid;
     addBtn.dataset.marketType = "ou";
     addBtn.title = "Add to CSV";
-    addBtn.textContent = "+";
+
+    const type = "ou";
+    const m = getOuMarginMultiplier();
+    const adjustedMarket = m !== 1
+      ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
+      : market;
+    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+    if (csvContainsRow(elements.csvOutput.value, row)) {
+      addBtn.classList.add("is-added");
+      addBtn.textContent = "✓";
+      addBtn.title = "Remove from CSV";
+      addBtn.dataset.csvRow = row;
+      for (const o of market.odds) {
+        const n = String(o.name).toLowerCase();
+        if (n.includes("manje") || n.includes("under")) addBtn.dataset.originalPriceU = o.price;
+        else if (n.includes("vise") || n.includes("over")) addBtn.dataset.originalPriceO = o.price;
+      }
+    } else {
+      addBtn.textContent = "+";
+    }
+
     addBtn.addEventListener("click", () => {
       if (addBtn.classList.contains("is-added")) {
         document.dispatchEvent(new CustomEvent("remove-statistika-from-csv", { detail: { button: addBtn } }));
@@ -967,7 +1130,71 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   button.className = "odd-button";
   button.type = "button";
   label.className = "odd-label";
-  price.className = "odd-price";
+  price.className = "odd-price odd-price--editable";
+  price.contentEditable = "true";
+  price.spellcheck = false;
+  
+  price.addEventListener("click", (e) => {
+    e.stopPropagation();
+  });
+  
+  price.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      price.blur();
+    }
+  });
+
+  price.addEventListener("blur", () => {
+    const newPrice = parseFloat(price.textContent.trim());
+    if (Number.isFinite(newPrice)) {
+      const multiplier = isOu ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
+      odd.price = newPrice / multiplier;
+      price.dataset.originalPrice = odd.price;
+      
+      // Find if the button or parent is added to CSV
+      // 1. For statistika market (where add button is in card title area)
+      const card = button.closest(".market-card");
+      const marketAddBtn = card?.querySelector(".market-title-area > .add-odd-button");
+      if (marketAddBtn && marketAddBtn.classList.contains("is-added")) {
+        const market = currentMarkets.find(m => String(m.uuid) === String(marketAddBtn.dataset.marketUuid));
+        if (market) {
+          const oldRow = marketAddBtn.dataset.csvRow;
+          const type = "ou";
+          const m = getOuMarginMultiplier();
+          const adjustedMarket = m !== 1
+            ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
+            : market;
+          const newRow = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+          if (newRow && oldRow && newRow !== oldRow) {
+            marketAddBtn.dataset.csvRow = newRow;
+            document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: marketAddBtn } }));
+          }
+        }
+      }
+      
+      // 2. For combo markets (where addBtn is .add-odd-button inside the combo wrapper)
+      const addBtn = button.nextElementSibling;
+      if (addBtn && addBtn.classList.contains("add-odd-button") && addBtn.classList.contains("is-added")) {
+        const oldRow = addBtn.dataset.csvRow;
+        const type = addBtn.dataset.marketType || "outright";
+        const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
+        const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
+        const currentMarketName = addBtn.dataset.currentMarketName;
+        const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName, price: adjustedOdd.price } : adjustedOdd;
+        const newRow = buildSpecijalRow({ event: currentEvent, marketName: currentMarketName, odd: dispatchOdd });
+        if (newRow && oldRow && newRow !== oldRow) {
+          addBtn.dataset.csvRow = newRow;
+          addBtn.dataset.originalPrice = odd.price;
+          document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: addBtn } }));
+        }
+      }
+    } else {
+      const multiplier = isOu ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
+      price.textContent = Number.isFinite(odd.price) ? (odd.price * multiplier).toFixed(2) : "-";
+    }
+  });
+
   label.textContent = contextText ? `${contextText} - ${odd.name}` : odd.name;
   price.dataset.marketType = isOu ? "ou" : "outright";
   price.dataset.originalPrice = odd.price;
@@ -985,11 +1212,25 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   addBtn.className = "add-odd-button add-odd-button--inline";
   addBtn.type = "button";
   addBtn.title = "Add to CSV as Specijali";
-  addBtn.textContent = "+";
   addBtn.dataset.currentMarketName = comboMarketName;
   addBtn.dataset.marketType = "outright";
   if (marketUuid) addBtn.dataset.marketUuid = marketUuid;
   if (odd.uuid) addBtn.dataset.oddUuid = odd.uuid;
+
+  const type = "outright";
+  const marginM = getOutrightMarginMultiplier();
+  const adjustedOdd = marginM !== 1 ? { ...odd, price: odd.price * marginM } : odd;
+  const row = buildSpecijalRow({ event: currentEvent, marketName: comboMarketName, odd: adjustedOdd });
+  if (csvContainsRow(elements.csvOutput.value, row)) {
+    addBtn.classList.add("is-added");
+    addBtn.textContent = "✓";
+    addBtn.title = "Remove from CSV";
+    addBtn.dataset.csvRow = row;
+    addBtn.dataset.originalPrice = odd.price;
+  } else {
+    addBtn.textContent = "+";
+  }
+
   addBtn.addEventListener("click", () => {
     if (addBtn.classList.contains("is-added")) {
       document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
@@ -1340,7 +1581,16 @@ function createPlayerGroupCardBasketball(query, matches) {
   title.textContent = query;
   count.textContent = `${matches.length} odds`;
   chevron.textContent = "›";
-  oddsList.append(...matches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
+  const sortedMatches = [...matches].sort((a, b) => {
+    const aDefault = isDefaultPlayerMarket(a.marketName);
+    const bDefault = isDefaultPlayerMarket(b.marketName);
+    const aSelected = isPlayerOddSelected(a.marketName, a.odd);
+    const bSelected = isPlayerOddSelected(b.marketName, b.odd);
+    const aVal = (aDefault && aSelected) ? 1 : 0;
+    const bVal = (bDefault && bSelected) ? 1 : 0;
+    return bVal - aVal;
+  });
+  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
 
   header.addEventListener("click", () => card.classList.toggle("is-expanded"));
 

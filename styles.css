@@ -735,6 +735,40 @@ select:disabled {
   box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
+.odd-price--editable {
+  cursor: text;
+  outline: none;
+  border: 1px dashed var(--line-bright);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  display: inline-block;
+  transition: border-color var(--t), background var(--t);
+}
+.odd-price--editable:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--text-3);
+}
+.odd-price--editable:focus {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--accent);
+}
+
+.player-odd-price--editable {
+  cursor: text;
+  outline: none;
+  border: 1px dashed var(--line-bright);
+  transition: border-color var(--t), background var(--t);
+}
+.player-odd-price--editable:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--text-3);
+}
+.player-odd-price--editable:focus {
+  background: rgba(255,255,255,0.06);
+  border-color: var(--accent);
+}
+
 .field--spaced {
   margin-top: 16px;
 }
@@ -851,16 +885,13 @@ select:disabled {
   border: 1px solid var(--line-bright);
   border-radius: 5px;
   background: var(--surface-2);
-  color: var(--accent);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  transition: border-color var(--t), background var(--t), color var(--t);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--t), background var(--t);
+  position: relative;
+  font-size: 0 !important; /* Hide + / ✓ text content */
 }
 
 .add-odd-button--inline:hover:not(:disabled) {
@@ -868,13 +899,25 @@ select:disabled {
   background: var(--accent-glow);
 }
 
+.add-odd-button--inline::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #000;
+  border-bottom: 2px solid #000;
+  transform: rotate(-45deg) translate(0.5px, -0.5px);
+  opacity: 0;
+  transition: opacity var(--t);
+}
+
 .add-odd-button--inline.is-added {
   background: var(--accent);
   border-color: var(--accent);
-  color: #000;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 800;
+}
+
+.add-odd-button--inline.is-added::after {
+  opacity: 1;
 }
 
 .add-odd-button--inline.is-added:hover {
@@ -915,31 +958,43 @@ select:disabled {
 
 .player-select-btn {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-sm);
   border: 1.5px solid var(--line-bright);
   background: none;
-  color: var(--text-2);
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color var(--t), color var(--t), background var(--t);
+  transition: border-color var(--t), background var(--t);
+  position: relative;
+  font-size: 0 !important; /* Hide + / ✓ text content */
 }
 
 .player-select-btn:hover {
   border-color: var(--accent);
-  color: var(--accent);
+}
+
+.player-select-btn::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #000;
+  border-bottom: 2px solid #000;
+  transform: rotate(-45deg) translate(0.5px, -0.5px);
+  opacity: 0;
+  transition: opacity var(--t);
 }
 
 .player-select-btn.is-selected {
   border-color: var(--accent);
   background: var(--accent);
-  color: #000;
-  font-weight: 700;
+}
+
+.player-select-btn.is-selected::after {
+  opacity: 1;
 }
 
 .player-card-header-text {
@@ -1032,35 +1087,45 @@ select:disabled {
 
 /* ─── Player prop add button ─── */
 .add-odd-button {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--line-bright);
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--line-bright);
   border-radius: var(--r-sm);
   background: var(--surface-2);
-  color: var(--accent);
   cursor: pointer;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
-  padding: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  transition: border-color var(--t), background var(--t), color var(--t);
+  transition: border-color var(--t), background var(--t), box-shadow var(--t);
+  position: relative;
+  font-size: 0 !important; /* Hide + / ✓ text content */
 }
 
 .add-odd-button:hover:not(:disabled) {
   border-color: var(--accent);
-  background: var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.add-odd-button::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #000;
+  border-bottom: 2px solid #000;
+  transform: rotate(-45deg) translate(0.5px, -0.5px);
+  opacity: 0;
+  transition: opacity var(--t);
 }
 
 .add-odd-button.is-added {
   background: var(--accent);
   border-color: var(--accent);
-  color: #000;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 800;
+}
+
+.add-odd-button.is-added::after {
+  opacity: 1;
 }
 
 .add-odd-button.is-added:hover {
@@ -1526,6 +1591,7 @@ select:disabled {
 
 .sim-odds-input[type=number] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 .simulation-controls {
@@ -1568,6 +1634,7 @@ select:disabled {
 
 .sim-iterations-input[type=number] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 
