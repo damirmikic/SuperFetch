@@ -987,8 +987,18 @@ function createPlayerGroupCard(query, matches, side) {
   chevron.className = "player-card-chevron";
   selectBtn.className = "player-select-btn";
   selectBtn.type = "button";
-  selectBtn.title = "Add default markets to CSV";
-  selectBtn.textContent = "+";
+
+  const defaultOdds = matches.filter(({ marketName }) => isDefaultPlayerMarket(marketName));
+  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(marketName, odd));
+
+  if (allDefaultsSelected) {
+    selectBtn.classList.add("is-selected");
+    selectBtn.textContent = "✓";
+    selectBtn.title = "Remove from CSV";
+  } else {
+    selectBtn.title = "Add default markets to CSV";
+    selectBtn.textContent = "+";
+  }
   oddsList.className = "player-odds-list";
 
   title.textContent = query;
@@ -1760,8 +1770,18 @@ function createPlayerGroupCardBasketball(query, matches) {
   chevron.className = "player-card-chevron";
   selectBtn.className = "player-select-btn";
   selectBtn.type = "button";
-  selectBtn.title = "Add default markets to CSV";
-  selectBtn.textContent = "+";
+
+  const defaultOdds = matches.filter(({ marketName }) => isDefaultPlayerMarket(marketName));
+  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(marketName, odd));
+
+  if (allDefaultsSelected) {
+    selectBtn.classList.add("is-selected");
+    selectBtn.textContent = "✓";
+    selectBtn.title = "Remove from CSV";
+  } else {
+    selectBtn.title = "Add default markets to CSV";
+    selectBtn.textContent = "+";
+  }
   oddsList.className = "player-odds-list";
 
   title.textContent = query;
