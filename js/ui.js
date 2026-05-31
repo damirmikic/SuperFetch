@@ -387,7 +387,9 @@ export function refreshDisplayedPrices() {
   }
 }
 
-export async function renderMarketsForCurrentFilter() {
+export async function renderMarketsForCurrentFilter(preserveScroll = false) {
+  const scrollY = window.scrollY;
+
   const startSifraContainer = document.querySelector("#start-sifra-container");
   if (startSifraContainer) {
     startSifraContainer.style.display = (activeMarketTab === "simulation") ? "inline-flex" : "none";
@@ -419,11 +421,21 @@ export async function renderMarketsForCurrentFilter() {
       }
     }
     renderSimulationView();
+    if (preserveScroll) {
+      window.scrollTo(0, scrollY);
+    } else {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
   if (!currentMarkets.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets found", "🏟️"));
+    if (preserveScroll) {
+      window.scrollTo(0, scrollY);
+    } else {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
@@ -434,9 +446,19 @@ export async function renderMarketsForCurrentFilter() {
     const cards = createPlayerGroupCardsByTeam(tabFiltered, side, marketSearch);
     if (!cards.length) {
       elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
+      if (preserveScroll) {
+        window.scrollTo(0, scrollY);
+      } else {
+        window.scrollTo(0, 0);
+      }
       return;
     }
     elements.marketsList.replaceChildren(...cards);
+    if (preserveScroll) {
+      window.scrollTo(0, scrollY);
+    } else {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
@@ -444,9 +466,19 @@ export async function renderMarketsForCurrentFilter() {
     const cards = createPlayerGroupCardsBasketball(tabFiltered, marketSearch);
     if (!cards.length) {
       elements.marketsList.replaceChildren(createEmptyState("No player props found", "👤"));
+      if (preserveScroll) {
+        window.scrollTo(0, scrollY);
+      } else {
+        window.scrollTo(0, 0);
+      }
       return;
     }
     elements.marketsList.replaceChildren(...cards);
+    if (preserveScroll) {
+      window.scrollTo(0, scrollY);
+    } else {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
@@ -457,6 +489,11 @@ export async function renderMarketsForCurrentFilter() {
 
   if (!visible.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
+    if (preserveScroll) {
+      window.scrollTo(0, scrollY);
+    } else {
+      window.scrollTo(0, 0);
+    }
     return;
   }
 
@@ -473,6 +510,11 @@ export async function renderMarketsForCurrentFilter() {
   const sortedVisible = [...selectedDefaults, ...others];
 
   elements.marketsList.replaceChildren(...sortedVisible.map(createMarketCard));
+  if (preserveScroll) {
+    window.scrollTo(0, scrollY);
+  } else {
+    window.scrollTo(0, 0);
+  }
 }
 
 /**
@@ -604,31 +646,31 @@ export function initMarketTabs() {
         t.setAttribute("aria-selected", String(active));
       }
 
-      renderMarketsForCurrentFilter();
+      renderMarketsForCurrentFilter(false);
     });
   }
 
-  elements.specijalMin.addEventListener("input", renderMarketsForCurrentFilter);
-  elements.specijalMax.addEventListener("input", renderMarketsForCurrentFilter);
+  elements.specijalMin.addEventListener("input", () => renderMarketsForCurrentFilter(true));
+  elements.specijalMax.addEventListener("input", () => renderMarketsForCurrentFilter(true));
   elements.specijalFilterClear.addEventListener("click", () => {
     elements.specijalMin.value = "";
     elements.specijalMax.value = "";
-    renderMarketsForCurrentFilter();
+    renderMarketsForCurrentFilter(true);
   });
 
   const searchInput = document.querySelector("#market-search");
   searchInput.addEventListener("input", () => {
     marketSearch = searchInput.value.trim();
-    renderMarketsForCurrentFilter();
+    renderMarketsForCurrentFilter(true);
   });
 
   // Re-sort and render markets list when items are added/removed
-  document.addEventListener("add-odd-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
-  document.addEventListener("remove-odd-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
-  document.addEventListener("add-specijal-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
-  document.addEventListener("remove-specijal-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
-  document.addEventListener("add-statistika-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
-  document.addEventListener("remove-statistika-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+  document.addEventListener("add-odd-to-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
+  document.addEventListener("remove-odd-from-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
+  document.addEventListener("add-specijal-to-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
+  document.addEventListener("remove-specijal-from-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
+  document.addEventListener("add-statistika-to-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
+  document.addEventListener("remove-statistika-from-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
 
   if (elements.eventNameRewrite) {
     elements.eventNameRewrite.addEventListener("input", () => {
