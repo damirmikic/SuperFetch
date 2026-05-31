@@ -151,7 +151,14 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
     const firstMatch = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
     const csvTeam = firstMatch ? firstMatch.slice("MATCH_NAME:".length) : "";
 
-    if (teamName && csvTeam && teamName !== csvTeam) {
+    if (csvTeam === "Specijal") {
+      const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
+        .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== odd.playerTeam);
+      if (differentTeamAdded) {
+        alert("Cannot mix players from different teams in Specijali.");
+        return;
+      }
+    } else if (teamName && csvTeam && teamName !== csvTeam) {
       alert(`Cannot mix players from different teams.\nCSV contains: "${csvTeam}"\nSelected player: "${teamName}"`);
       return;
     }

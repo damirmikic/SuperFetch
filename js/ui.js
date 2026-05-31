@@ -1018,8 +1018,15 @@ function createPlayerGroupCard(query, matches, side) {
         const csvLines = csvValue.split(/\r?\n/);
         const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
         const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
-        const playerTeam = side === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
-        if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+        if (csvTeam === "Specijal") {
+          const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
+            .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== side);
+          if (differentTeamAdded) return;
+        } else {
+          const rewritten = getRewrittenTeamNames();
+          const playerTeam = side === "home" ? rewritten.home : rewritten.away;
+          if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+        }
       }
       selectBtn.classList.add("is-selected");
       selectBtn.textContent = "✓";
@@ -1057,6 +1064,9 @@ function createPlayerOddRow(marketName, odd) {
   addButton.title = "Add to CSV";
   addButton.dataset.marketName = marketName;
   addButton.dataset.marketType = "ou";
+  if (odd.playerTeam) {
+    addButton.dataset.playerTeam = odd.playerTeam;
+  }
   price.className = "player-odd-price player-odd-price--editable";
   price.contentEditable = "true";
   price.spellcheck = false;
@@ -1807,8 +1817,15 @@ function createPlayerGroupCardBasketball(query, matches) {
         const csvLines = csvValue.split(/\r?\n/);
         const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
         const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
-        const playerTeam = currentSide === "home" ? currentEvent?.homeTeam : currentEvent?.awayTeam;
-        if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+        if (csvTeam === "Specijal") {
+          const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
+            .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== currentSide);
+          if (differentTeamAdded) return;
+        } else {
+          const rewritten = getRewrittenTeamNames();
+          const playerTeam = currentSide === "home" ? rewritten.home : rewritten.away;
+          if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
+        }
       }
       selectBtn.classList.add("is-selected");
       selectBtn.textContent = "✓";
