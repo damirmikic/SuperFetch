@@ -28,7 +28,8 @@ import {
   renderEuroleagueStats,
   clearSimulationOverrides,
   getEventName,
-  getRewrittenTeamNames
+  getRewrittenTeamNames,
+  showToast
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -180,11 +181,11 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   const existing = getCsvOutput().trim();
   const state = detectCsvState(existing);
   if (state === "statistika") {
-    alert("Ocisti statistiku prvo");
+    showToast("Ocisti statistiku prvo", "warning");
     return;
   }
   if (state === "specijali") {
-    alert("Nije dozvoljeno mešanje specijala i igrača");
+    showToast("Nije dozvoljeno mešanje specijala i igrača", "warning");
     return;
   }
 
@@ -220,11 +221,11 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
       const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
         .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== odd.playerTeam);
       if (differentTeamAdded) {
-        alert("Cannot mix players from different teams in Specijali.");
+        showToast("Cannot mix players from different teams in Specijali.", "warning");
         return;
       }
     } else if (teamName && csvTeam && teamName !== csvTeam) {
-      alert(`Cannot mix players from different teams.\nCSV contains: "${csvTeam}"\nSelected player: "${teamName}"`);
+      showToast(`Cannot mix players from different teams.\nCSV contains: "${csvTeam}"\nSelected player: "${teamName}"`, "warning");
       return;
     }
 
@@ -275,7 +276,7 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
 
   const existing = getCsvOutput().trim();
   if (detectCsvState(existing) === "players") {
-    alert("Nije dozvoljeno mešanje specijala i igrača");
+    showToast("Nije dozvoljeno mešanje specijala i igrača", "warning");
     return;
   }
   if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
@@ -339,7 +340,7 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
 
   const existing = getCsvOutput().trim();
   if (detectCsvState(existing) === "players") {
-    alert("Ocisti igrače prvo");
+    showToast("Ocisti igrače prvo", "warning");
     return;
   }
   if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;

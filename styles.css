@@ -1689,5 +1689,111 @@ select:disabled {
   appearance: textfield;
 }
 
+/* ═══════════════════════════════════════
+   TOAST / ALERT MODAL
+   ═══════════════════════════════════════ */
+
+/* Backdrop overlay */
+.toast-container {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  padding: 24px;
+}
+
+.toast-container:not(:empty) {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Modal card */
+.toast {
+  position: relative;
+  width: min(480px, 90vw);
+  background: #1a1f2b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  color: var(--text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  transform: scale(0.85);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+
+.toast.is-visible {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Colour variants — top accent bar */
+.toast::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 16px 16px 0 0;
+  background: var(--accent);
+}
+
+.toast--warning::before {
+  background: var(--gold, #e6b84f);
+}
+
+.toast--error::before {
+  background: var(--red, #e05252);
+}
+
+/* Big icon */
+.toast-icon {
+  font-size: 48px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Message text */
+.toast-message {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text, #e0e6f0);
+  white-space: pre-line;
+}
+
+/* Dismiss button */
+.toast-close {
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text, #e0e6f0);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 32px;
+  border-radius: 8px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  letter-spacing: 0.03em;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+
+
 
 

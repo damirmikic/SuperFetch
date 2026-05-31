@@ -1081,28 +1081,26 @@ function createPlayerGroupCard(query, matches, side) {
       }
     } else {
       const csvValue = elements.csvOutput.value.trim();
-      if (csvValue) {
-        const state = detectCsvState(csvValue);
-        if (state === "statistika") {
-          alert("Ocisti statistiku prvo");
-          return;
-        }
-        if (state === "specijali") {
-          alert("Nije dozvoljeno mešanje specijala i igrača");
-          return;
-        }
-        const csvLines = csvValue.split(/\r?\n/);
-        const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
-        const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
-        if (csvTeam === "Specijal") {
-          const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
-            .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== side);
-          if (differentTeamAdded) return;
-        } else {
-          const rewritten = getRewrittenTeamNames();
-          const playerTeam = side === "home" ? rewritten.home : rewritten.away;
-          if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
-        }
+      const state = detectCsvState(csvValue);
+      if (state === "statistika") {
+        showToast("Ocisti statistiku prvo", "warning");
+        return;
+      }
+      if (state === "specijali") {
+        showToast("Nije dozvoljeno mešanje specijala i igrača", "warning");
+        return;
+      }
+      const csvLines = csvValue.split(/\r?\n/);
+      const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
+      const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+      if (csvTeam === "Specijal") {
+        const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
+          .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== side);
+        if (differentTeamAdded) return;
+      } else {
+        const rewritten = getRewrittenTeamNames();
+        const playerTeam = side === "home" ? rewritten.home : rewritten.away;
+        if (csvTeam && playerTeam && csvTeam !== playerTeam) return;
       }
       selectBtn.classList.add("is-selected");
       selectBtn.textContent = "✓";
@@ -1664,7 +1662,7 @@ export function addDefaultStatistikaMarkets() {
 
   const csv = elements.csvOutput.value.trim();
   if (csv && detectCsvState(csv) === "players") {
-    alert("Ocisti igrače prvo");
+    showToast("Ocisti igrače prvo", "warning");
     return;
   }
 
@@ -1912,7 +1910,7 @@ function createPlayerGroupCardBasketball(query, matches) {
   teamSelect.addEventListener("change", () => {
     const hasAdded = oddsList.querySelector(".add-odd-button.is-added");
     if (hasAdded) {
-      alert("Ne možete promeniti tim igrača jer su njegove kvote već dodate u CSV.");
+      showToast("Ne možete promeniti tim igrača jer su njegove kvote već dodate u CSV.", "warning");
       teamSelect.value = previousValue;
       return;
     }
@@ -3062,4 +3060,58 @@ export function renderSimulationView() {
 
   elements.marketsList.replaceChildren(container);
 }
+
+export function showToast(message, type = "info") {
+  // Remove any existing toast first (only one modal at a time)
+  const existing = document.querySelector(".toast-container");
+  if (existing) existing.remove();
+
+  const container = document.createElement("div");
+  container.className = "toast-container";
+  document.body.appendChild(container);
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${type}`;
+
+  const iconMap = {
+    info: "ℹ️",
+    warning: "⚠️",
+    error: "❌",
+    success: "✅"
+  };
+  const icon = iconMap[type] || "ℹ️";
+
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-message">${message}</span>
+    <button class="toast-close" type="button" aria-label="Close">U redu</button>
+  `;
+
+  container.appendChild(toast);
+
+  // Trigger reflow to animate in
+  toast.offsetHeight;
+  toast.classList.add("is-visible");
+
+  const dismiss = () => {
+    toast.classList.remove("is-visible");
+    container.style.background = "transparent";
+    container.style.backdropFilter = "none";
+    toast.addEventListener("transitionend", () => {
+      container.remove();
+    }, { once: true });
+  };
+
+  // "U redu" button dismisses
+  toast.querySelector(".toast-close").addEventListener("click", dismiss);
+
+  // Clicking backdrop (container) outside the card also dismisses
+  container.addEventListener("click", (e) => {
+    if (e.target === container) dismiss();
+  });
+
+  // Auto dismiss after 8 seconds
+  setTimeout(dismiss, 8000);
+}
+
 
