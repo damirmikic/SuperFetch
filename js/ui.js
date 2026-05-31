@@ -48,6 +48,7 @@ let activeMarketTab = "all";
 let marketSearch = "";
 let currentSportId = 5; // Default is soccer (5)
 let activeSimSubTab = "groups";
+const expandedPlayers = new Set();
 
 const WORLD_CUP_2026_FALLBACK_OUTRIGHTS = {
   "Španija": 5.50,
@@ -288,6 +289,7 @@ export function resetMarkets() {
   setKickoffTime(null);
 
   previousEventName = "";
+  expandedPlayers.clear();
   if (elements.eventNameRewrite) {
     elements.eventNameRewrite.value = "";
     elements.eventNameRewrite.classList.remove("is-invalid");
@@ -308,6 +310,7 @@ export function renderMarkets(markets) {
   _resetDefaultHost();
   currentMarkets = markets;
   marketSearch = "";
+  expandedPlayers.clear();
   document.querySelector("#market-search").value = "";
   elements.marketsStatus.classList.remove("is-error");
   elements.marketsStatus.textContent = markets.length
@@ -1002,7 +1005,19 @@ function createPlayerGroupCard(query, matches, side) {
   });
   oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
 
-  header.addEventListener("click", () => card.classList.toggle("is-expanded"));
+  const normQuery = normalizeSearchText(query);
+  if (expandedPlayers.has(normQuery)) {
+    card.classList.add("is-expanded");
+  }
+
+  header.addEventListener("click", () => {
+    const isExpanded = card.classList.toggle("is-expanded");
+    if (isExpanded) {
+      expandedPlayers.add(normQuery);
+    } else {
+      expandedPlayers.delete(normQuery);
+    }
+  });
 
   selectBtn.addEventListener("click", () => {
     if (selectBtn.classList.contains("is-selected")) {
@@ -1763,7 +1778,19 @@ function createPlayerGroupCardBasketball(query, matches) {
   });
   oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
 
-  header.addEventListener("click", () => card.classList.toggle("is-expanded"));
+  const normQuery = normalizeSearchText(query);
+  if (expandedPlayers.has(normQuery)) {
+    card.classList.add("is-expanded");
+  }
+
+  header.addEventListener("click", () => {
+    const isExpanded = card.classList.toggle("is-expanded");
+    if (isExpanded) {
+      expandedPlayers.add(normQuery);
+    } else {
+      expandedPlayers.delete(normQuery);
+    }
+  });
 
   const teamSelect = document.createElement("select");
   teamSelect.className = "player-team-select";
