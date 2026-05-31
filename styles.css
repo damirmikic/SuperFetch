@@ -369,6 +369,28 @@ select:disabled {
   color: var(--text-3);
 }
 
+.event-rewrite-input {
+  width: 260px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color var(--t);
+}
+
+.event-rewrite-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.event-rewrite-input::placeholder {
+  color: var(--text-3);
+}
+
 .specijali-filter-sep {
   color: var(--text-3);
   font-size: 13px;

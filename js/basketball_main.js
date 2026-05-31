@@ -26,7 +26,9 @@ import {
   addDefaultStatistikaMarkets,
   setSportId,
   renderEuroleagueStats,
-  clearSimulationOverrides
+  clearSimulationOverrides,
+  getEventName,
+  getRewrittenTeamNames
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -172,16 +174,17 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   const type = button.dataset.marketType || "ou";
   const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
-  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
 
+  const rewrittenTeams = getRewrittenTeamNames();
   const teamName = odd.playerTeam === "home"
-    ? (event.homeTeam || event.matchName)
+    ? rewrittenTeams.home
     : odd.playerTeam === "away"
-      ? (event.awayTeam || event.matchName)
-      : (event.awayTeam || event.homeTeam || event.matchName);
+      ? rewrittenTeams.away
+      : (rewrittenTeams.away || rewrittenTeams.home || event.matchName);
   const resolvedName = (odd.playerName && !String(odd.playerName).includes(":"))
     ? String(odd.playerName)
     : (() => {
@@ -251,7 +254,7 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   const type = button.dataset.marketType || "outright";
   const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
-  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd });
+  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -262,12 +265,12 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   if (existing) {
     newCsv = `${existing}\r\n${row}`;
   } else {
-    const block = buildSpecijaliBlock({ event, marketName, odd: adjustedOdd });
+    const block = buildSpecijaliBlock({ event, marketName, odd: adjustedOdd, eventName: getEventName() });
     if (!block) return;
     newCsv = `${CSV_COLUMNS.join(",")}\r\n${block}`;
   }
 
-  const eventFilename = makeCsvFilename(event, event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName);
+  const eventFilename = makeCsvFilename(event, getEventName());
   renderCsvOutput(newCsv, eventFilename, countCsvRows(newCsv));
   button.dataset.csvRow = row;
   button.dataset.originalPrice = odd.price;
@@ -311,18 +314,18 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
   const adjustedMarket = m !== 1
     ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
     : market;
-  const row = buildStatistikaMarketCsvRow({ event, market: adjustedMarket });
+  const row = buildStatistikaMarketCsvRow({ event, market: adjustedMarket, rewrittenEventName: getEventName() });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
   if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
 
-  const eventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
+  const eventName = getEventName();
   const newCsv = existing
     ? `${existing}\r\n${row}`
     : `${CSV_COLUMNS.join(",")}\r\nMATCH_NAME:Specijal\r\nLEAGUE_NAME:${eventName}\r\n${row}`;
 
-  const statFilename = makeCsvFilename(event, event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName);
+  const statFilename = makeCsvFilename(event, getEventName());
   renderCsvOutput(newCsv, statFilename, countCsvRows(newCsv));
   button.dataset.csvRow = row;
   for (const o of market.odds) {

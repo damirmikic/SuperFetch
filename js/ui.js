@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -33,13 +33,16 @@ const elements = {
   specijalFilter: document.querySelector("#specijali-filter"),
   specijalMin: document.querySelector("#specijali-min"),
   specijalMax: document.querySelector("#specijali-max"),
-  specijalFilterClear: document.querySelector("#specijali-filter-clear")
+  specijalFilterClear: document.querySelector("#specijali-filter-clear"),
+  eventNameRewrite: document.querySelector("#event-name-rewrite"),
+  eventNameRewriteWrap: document.querySelector("#event-name-rewrite-wrap")
 };
 
 let optionIndex = new Map();
 let eventIndex = new Map();
 let currentMarkets = [];
 let currentEvent = null;
+let previousEventName = "";
 /** @type {"all"|"standard"|"statistika"|"specijali"|"home-players"|"away-players"|"players"} */
 let activeMarketTab = "all";
 let marketSearch = "";
@@ -155,6 +158,35 @@ export function getSelectedEvent() {
   return eventIndex.get(elements.eventSelect.value) ?? null;
 }
 
+export function getEventName() {
+  if (elements.eventNameRewrite && elements.eventNameRewrite.value.trim()) {
+    return elements.eventNameRewrite.value.trim();
+  }
+  const event = getSelectedEvent();
+  if (!event) return "";
+  return event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
+}
+
+export function getRewrittenTeamNames() {
+  const event = getSelectedEvent();
+  if (!event) return { home: "", away: "" };
+  const name = getEventName();
+  let parts = name.split(/\s+-\s+/);
+  if (parts.length !== 2) {
+    parts = name.split(/\s*-\s*/);
+  }
+  if (parts.length === 2) {
+    return {
+      home: parts[0].trim(),
+      away: parts[1].trim()
+    };
+  }
+  return {
+    home: event.homeTeam || "",
+    away: event.awayTeam || ""
+  };
+}
+
 export function getCurrentMarkets() {
   return currentMarkets;
 }
@@ -215,6 +247,16 @@ export function setMarketsLoading(event) {
   currentMarkets = [];
   currentEvent = event;
   setKickoffTime(event);
+
+  const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : (event.matchName || "");
+  previousEventName = defaultEventName;
+  if (elements.eventNameRewrite) {
+    elements.eventNameRewrite.value = defaultEventName;
+  }
+  if (elements.eventNameRewriteWrap) {
+    elements.eventNameRewriteWrap.style.display = "flex";
+  }
+
   resetCsvOutput("Loading markets...");
   elements.marketsList.replaceChildren(createEmptyState("Loading markets...", "⏳"));
 }
@@ -234,6 +276,15 @@ export function resetMarkets() {
   currentMarkets = [];
   currentEvent = null;
   setKickoffTime(null);
+
+  previousEventName = "";
+  if (elements.eventNameRewrite) {
+    elements.eventNameRewrite.value = "";
+  }
+  if (elements.eventNameRewriteWrap) {
+    elements.eventNameRewriteWrap.style.display = "none";
+  }
+
   resetCsvOutput("Choose an event first");
   elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
   _resetDefaultHost();
@@ -564,6 +615,82 @@ export function initMarketTabs() {
   document.addEventListener("remove-specijal-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
   document.addEventListener("add-statistika-to-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
   document.addEventListener("remove-statistika-from-csv", () => setTimeout(renderMarketsForCurrentFilter, 0));
+
+  if (elements.eventNameRewrite) {
+    elements.eventNameRewrite.addEventListener("input", () => {
+      const newName = getEventName();
+      const csv = getCsvOutput();
+      
+      const event = getSelectedEvent();
+      if (!event) return;
+
+      const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : (event.matchName || "");
+      const baseName = previousEventName || defaultEventName;
+
+      let prevHome = "", prevAway = "";
+      let baseParts = baseName.split(/\s+-\s+/);
+      if (baseParts.length !== 2) {
+        baseParts = baseName.split(/\s*-\s*/);
+      }
+      if (baseParts.length === 2) {
+        prevHome = baseParts[0].trim();
+        prevAway = baseParts[1].trim();
+      }
+
+      let newHome = "", newAway = "";
+      let newParts = newName.split(/\s+-\s+/);
+      if (newParts.length !== 2) {
+        newParts = newName.split(/\s*-\s*/);
+      }
+      if (newParts.length === 2) {
+        newHome = newParts[0].trim();
+        newAway = newParts[1].trim();
+      }
+
+      if (csv) {
+        let newCsv = csv;
+        
+        // 1. Replace team names in CSV body
+        if (prevHome && newHome && prevHome !== newHome) {
+          newCsv = replaceTeamNameInText(newCsv, prevHome, newHome);
+        }
+        if (prevAway && newAway && prevAway !== newAway) {
+          newCsv = replaceTeamNameInText(newCsv, prevAway, newAway);
+        }
+
+        // 2. Replace LEAGUE_NAME line
+        const lines = newCsv.split(/\r?\n/);
+        const hasSpecijal = lines.some(line => line.startsWith("MATCH_NAME:Specijal"));
+        if (hasSpecijal) {
+          newCsv = lines.map(line => {
+            if (line.startsWith("LEAGUE_NAME:")) {
+              return `LEAGUE_NAME:${newName}`;
+            }
+            return line;
+          }).join("\r\n");
+        }
+
+        // 3. Update button datasets
+        for (const btn of document.querySelectorAll(".add-odd-button, .player-select-btn")) {
+          if (btn.dataset.csvRow) {
+            let row = btn.dataset.csvRow;
+            if (prevHome && newHome && prevHome !== newHome) {
+              row = replaceTeamNameInText(row, prevHome, newHome);
+            }
+            if (prevAway && newAway && prevAway !== newAway) {
+              row = replaceTeamNameInText(row, prevAway, newAway);
+            }
+            btn.dataset.csvRow = row;
+          }
+        }
+
+        const filename = makeCsvFilename(event, newName);
+        renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
+      }
+
+      previousEventName = newName;
+    });
+  }
 }
 
 
@@ -690,14 +817,14 @@ function isMarketSelected(market) {
     const adjustedMarket = m !== 1
       ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
       : market;
-    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket, rewrittenEventName: getEventName() });
     return csvContainsRow(csv, row);
   } else {
     return market.odds.some((o) => {
       const type = "outright";
       const m = getOutrightMarginMultiplier();
       const adjustedOdd = m !== 1 ? { ...o, price: o.price * m } : o;
-      const row = buildSpecijalRow({ event: currentEvent, marketName: market.marketName, odd: adjustedOdd });
+      const row = buildSpecijalRow({ event: currentEvent, marketName: market.marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
       return csvContainsRow(csv, row);
     });
   }
@@ -713,7 +840,7 @@ function isPlayerOddSelected(marketName, odd) {
   const type = "ou";
   const m = getOuMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
-  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+  const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
   return csvContainsRow(csv, row);
 }
 

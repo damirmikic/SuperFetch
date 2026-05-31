@@ -1,7 +1,49 @@
 export const CSV_COLUMNS = ["Datum", "Vreme", "Sifra", "Domacin", "Gost", "1", "X", "2", "GR", "U", "O", "Yes", "No"];
 
-export function buildSingleOddCsvRow({ event, marketName, odd }) {
-  const mapped = mapOddToCsvMarket({ marketName }, odd);
+export function replaceTeamNameInText(text, oldTeam, newTeam) {
+  if (!text || !oldTeam || !newTeam || oldTeam === newTeam) return text;
+  const escaped = oldTeam.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  try {
+    const regex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'gu');
+    return text.replace(regex, newTeam);
+  } catch (e) {
+    return text.replaceAll(oldTeam, newTeam);
+  }
+}
+
+export function getRewrittenString(str, event, rewrittenEventName) {
+  if (!str || !event || !rewrittenEventName) return str;
+  const originalHome = event.homeTeam;
+  const originalAway = event.awayTeam;
+  if (!originalHome || !originalAway) return str;
+
+  let parts = rewrittenEventName.split(/\s+-\s+/);
+  if (parts.length !== 2) {
+    parts = rewrittenEventName.split(/\s*-\s*/);
+  }
+  if (parts.length !== 2) return str;
+
+  const rewrittenHome = parts[0].trim();
+  const rewrittenAway = parts[1].trim();
+
+  let result = str;
+  if (originalHome && rewrittenHome && originalHome !== rewrittenHome) {
+    result = replaceTeamNameInText(result, originalHome, rewrittenHome);
+  }
+  if (originalAway && rewrittenAway && originalAway !== rewrittenAway) {
+    result = replaceTeamNameInText(result, originalAway, rewrittenAway);
+  }
+  return result;
+}
+
+export function buildSingleOddCsvRow({ event, marketName, odd, rewrittenEventName }) {
+  let finalMarketName = marketName;
+  let finalOddName = odd.name;
+  if (rewrittenEventName) {
+    finalMarketName = getRewrittenString(marketName, event, rewrittenEventName);
+    finalOddName = getRewrittenString(odd.name, event, rewrittenEventName);
+  }
+  const mapped = mapOddToCsvMarket({ marketName: finalMarketName }, { ...odd, name: finalOddName });
   if (!mapped) return "";
   const { date, time } = formatEventDateTime(event.matchDate);
   return formatCsvRow([date, time, "", mapped.market, mapped.answer, formatPrice(odd.price), "", "", "", "", "", "", ""]);
@@ -11,13 +53,13 @@ export function buildSingleOddCsvRow({ event, marketName, odd }) {
  * Build a full specijali block (headers + row) for one odd from a combo market.
  * MATCH_NAME: Specijali, LEAGUE_NAME: <home> - <away> (or matchName)
  */
-export function buildSpecijaliBlock({ event, marketName, odd }) {
-  const row = buildSpecijalRow({ event, marketName, odd });
+export function buildSpecijaliBlock({ event, marketName, odd, eventName }) {
+  const row = buildSpecijalRow({ event, marketName, odd, rewrittenEventName: eventName });
   if (!row) return "";
-  const eventName = formatMatchName(event);
+  const finalEventName = eventName || formatMatchName(event);
   return [
     formatCsvRow([`MATCH_NAME:Specijal`]),
-    formatCsvRow([`LEAGUE_NAME:${eventName}`]),
+    formatCsvRow([`LEAGUE_NAME:${finalEventName}`]),
     row
   ].join("\r\n");
 }
@@ -26,9 +68,12 @@ export function buildSpecijaliBlock({ event, marketName, odd }) {
  * Build a single CSV row for an entire statistika market.
  * Maps Under → U column, Over → O column; extracts the line value from odd names.
  */
-export function buildStatistikaMarketCsvRow({ event, market }) {
+export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName }) {
   const { date, time } = formatEventDateTime(event.matchDate);
-  const marketName = String(market.marketName).trim();
+  let marketName = String(market.marketName).trim();
+  if (rewrittenEventName) {
+    marketName = getRewrittenString(marketName, event, rewrittenEventName);
+  }
   if (!marketName) return "";
 
   const marketNorm = normalizeSearchText(marketName);
@@ -85,13 +130,19 @@ export function buildStatistikaMarketCsvRow({ event, market }) {
 /**
  * Build a single CSV data row for a specijali odd (no header lines).
  */
-export function buildSpecijalRow({ event, marketName, odd }) {
+export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName }) {
   const oddNameLower = String(odd.name).toLowerCase().trim();
   if (oddNameLower === "ne" || oddNameLower === "no") return "";
 
   const { date, time } = formatEventDateTime(event.matchDate);
-  const market = toAsciiMarketName(String(marketName).trim());
-  const rawAnswer = toAsciiMarketName(String(odd.name).trim());
+  let finalMarketName = marketName;
+  let finalOddName = odd.name;
+  if (rewrittenEventName) {
+    finalMarketName = getRewrittenString(marketName, event, rewrittenEventName);
+    finalOddName = getRewrittenString(odd.name, event, rewrittenEventName);
+  }
+  const market = toAsciiMarketName(String(finalMarketName).trim());
+  const rawAnswer = toAsciiMarketName(String(finalOddName).trim());
   let answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
 
   const marketNorm = normalizeSearchText(marketName);

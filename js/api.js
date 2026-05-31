@@ -151,15 +151,15 @@ function getLocalName(localNames = {}) {
 }
 
 function normalizeEvent(event) {
-  const teams = String(event.matchName ?? "").split("·");
+  const teams = String(event.matchName ?? "").split(/\s*·\s*|\s+-\s+/);
 
   return {
     eventId: Number(event.eventId),
     tournamentId: Number(event.tournamentId),
     categoryId: Number(event.categoryId),
     matchName: event.matchName ?? "Unnamed event",
-    homeTeam: teams[0] ?? "",
-    awayTeam: teams[1] ?? "",
+    homeTeam: (teams[0] ?? "").trim(),
+    awayTeam: (teams[1] ?? "").trim(),
     matchDate: event.matchDate ?? event.utcDate ?? "",
     marketCount: Number(event.marketCount ?? 0),
     oddsCount: Number(event.counts?.odds?.["1"] ?? event.odds?.length ?? 0),
