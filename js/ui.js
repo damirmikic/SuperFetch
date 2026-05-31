@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -1082,6 +1082,15 @@ function createPlayerGroupCard(query, matches, side) {
     } else {
       const csvValue = elements.csvOutput.value.trim();
       if (csvValue) {
+        const state = detectCsvState(csvValue);
+        if (state === "statistika") {
+          alert("Ocisti statistiku prvo");
+          return;
+        }
+        if (state === "specijali") {
+          alert("Nije dozvoljeno mešanje specijala i igrača");
+          return;
+        }
         const csvLines = csvValue.split(/\r?\n/);
         const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
         const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
@@ -1652,6 +1661,12 @@ function _balanceScore(market) {
 
 export function addDefaultStatistikaMarkets() {
   if (!currentEvent || !currentMarkets.length) return;
+
+  const csv = elements.csvOutput.value.trim();
+  if (csv && detectCsvState(csv) === "players") {
+    alert("Ocisti igrače prvo");
+    return;
+  }
 
   const home = currentEvent.homeTeam || "";
   const away = currentEvent.awayTeam || "";

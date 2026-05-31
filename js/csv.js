@@ -966,4 +966,64 @@ export function buildTeamSimulationCsv({ teamName, teamResults, eventDate, compe
   return rows.filter(Boolean).join("\r\n");
 }
 
+export function detectCsvState(csv) {
+  if (!csv || !csv.trim()) return "empty";
+  const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  
+  let hasPlayers = false;
+  let hasStatistika = false;
+  let hasSpecijali = false;
+  
+  let currentMatchName = "";
+  
+  for (const line of lines) {
+    if (line.startsWith("MATCH_NAME:")) {
+      currentMatchName = line.slice("MATCH_NAME:".length).trim();
+      if (currentMatchName !== "Specijal") {
+        hasPlayers = true;
+      }
+    } else if (line.startsWith("LEAGUE_NAME:")) {
+      // league name
+    } else if (!line.startsWith("Datum,Vreme")) {
+      // it's a data row
+      if (currentMatchName === "Specijal") {
+        const parts = line.split(",");
+        const marketName = parts[3] || "";
+        const hostName = parts[4] || "";
+        
+        // Check if it has O/U values (index 8, 9, 10)
+        const hasOU = (parts[8] && parts[8].trim()) || 
+                      (parts[9] && parts[9].trim()) || 
+                      (parts[10] && parts[10].trim());
+                      
+        if (hasOU || hasStatistikaKeywords(marketName) || hasStatistikaKeywords(hostName)) {
+          hasStatistika = true;
+        } else {
+          hasSpecijali = true;
+        }
+      }
+    }
+  }
+  
+  if (hasPlayers && (hasStatistika || hasSpecijali)) return "mixed";
+  if (hasPlayers) return "players";
+  if (hasStatistika && hasSpecijali) return "mixed-specijal-statistika";
+  if (hasStatistika) return "statistika";
+  if (hasSpecijali) return "specijali";
+  return "empty";
+}
+
+function hasStatistikaKeywords(text) {
+  if (!text) return false;
+  const norm = normalizeSearchText(text);
+  const keywords = [
+    "korner", "karton", "faul", "ofsajd", "sut", "sutev", "udarac", "udarci",
+    "saves", "obrane", "odbrane", "ubacaj", "slobodan udarac",
+    "asistenc", "skok", "ukraden", "izgubljen", "slobodna bacanja", "3 poen", "trojk",
+    "asov", "asev", "dupl", "brejk"
+  ];
+  return keywords.some(kw => norm.includes(kw));
+}
+
+
 

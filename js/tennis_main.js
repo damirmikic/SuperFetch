@@ -1,5 +1,5 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchTennisCompetitions } from "./api.js";
-import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, replaceCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename } from "./csv.js";
+import { buildSingleOddCsvRow, buildStatistikaMarketCsvRow, buildSpecijaliBlock, buildSpecijalRow, removeCsvRow, replaceCsvRow, removePlayerOddFromCsv, removeSpecijalRowFromCsv, countCsvRows, CSV_COLUMNS, makeCsvFilename, detectCsvState } from "./csv.js";
 import {
   getSelectedCompetition,
   getSelectedEvent,
@@ -120,6 +120,15 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   if (!row) return;
 
   const existing = getCsvOutput().trim();
+  const state = detectCsvState(existing);
+  if (state === "statistika") {
+    alert("Ocisti statistiku prvo");
+    return;
+  }
+  if (state === "specijali") {
+    alert("Nije dozvoljeno mešanje specijala i igrača");
+    return;
+  }
 
   const rewrittenTeams = getRewrittenTeamNames();
   const teamName = odd.playerTeam === "home"
@@ -207,6 +216,10 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   if (!row) return;
 
   const existing = getCsvOutput().trim();
+  if (detectCsvState(existing) === "players") {
+    alert("Nije dozvoljeno mešanje specijala i igrača");
+    return;
+  }
   if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
 
   let newCsv;
@@ -267,6 +280,10 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
   if (!row) return;
 
   const existing = getCsvOutput().trim();
+  if (detectCsvState(existing) === "players") {
+    alert("Ocisti igrače prvo");
+    return;
+  }
   if (existing && existing.split(/\r?\n/).some((line) => line === row)) return;
 
   const eventName = getEventName();
