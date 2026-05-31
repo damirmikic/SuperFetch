@@ -159,12 +159,21 @@ export function getSelectedEvent() {
 }
 
 export function getEventName() {
-  if (elements.eventNameRewrite && elements.eventNameRewrite.value.trim()) {
-    return elements.eventNameRewrite.value.trim();
-  }
   const event = getSelectedEvent();
   if (!event) return "";
-  return event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
+  const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : event.matchName;
+  if (elements.eventNameRewrite) {
+    const val = elements.eventNameRewrite.value.trim();
+    if (!val) return defaultEventName;
+    let parts = val.split(/\s+-\s+/);
+    if (parts.length !== 2) {
+      parts = val.split(/\s*-\s*/);
+    }
+    if (parts.length === 2 && parts[0].trim() && parts[1].trim()) {
+      return val;
+    }
+  }
+  return defaultEventName;
 }
 
 export function getRewrittenTeamNames() {
@@ -252,6 +261,7 @@ export function setMarketsLoading(event) {
   previousEventName = defaultEventName;
   if (elements.eventNameRewrite) {
     elements.eventNameRewrite.value = defaultEventName;
+    elements.eventNameRewrite.classList.remove("is-invalid");
   }
   if (elements.eventNameRewriteWrap) {
     elements.eventNameRewriteWrap.style.display = "flex";
@@ -280,6 +290,7 @@ export function resetMarkets() {
   previousEventName = "";
   if (elements.eventNameRewrite) {
     elements.eventNameRewrite.value = "";
+    elements.eventNameRewrite.classList.remove("is-invalid");
   }
   if (elements.eventNameRewriteWrap) {
     elements.eventNameRewriteWrap.style.display = "none";
@@ -618,13 +629,46 @@ export function initMarketTabs() {
 
   if (elements.eventNameRewrite) {
     elements.eventNameRewrite.addEventListener("input", () => {
-      const newName = getEventName();
-      const csv = getCsvOutput();
-      
+      const rawInput = elements.eventNameRewrite.value.trim();
       const event = getSelectedEvent();
       if (!event) return;
 
       const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : (event.matchName || "");
+
+      // 1. Validate custom input format
+      let isValid = false;
+      let newHome = "", newAway = "";
+
+      if (rawInput === "") {
+        isValid = true; // Empty is valid (reverts to default)
+        const defaultParts = defaultEventName.split(/\s+-\s+/);
+        if (defaultParts.length === 2) {
+          newHome = defaultParts[0].trim();
+          newAway = defaultParts[1].trim();
+        }
+      } else {
+        let parts = rawInput.split(/\s+-\s+/);
+        if (parts.length !== 2) {
+          parts = rawInput.split(/\s*-\s*/);
+        }
+        if (parts.length === 2) {
+          newHome = parts[0].trim();
+          newAway = parts[1].trim();
+          if (newHome && newAway) {
+            isValid = true;
+          }
+        }
+      }
+
+      if (!isValid) {
+        elements.eventNameRewrite.classList.add("is-invalid");
+        return; // Prevent updating CSV / state
+      }
+
+      elements.eventNameRewrite.classList.remove("is-invalid");
+
+      const newName = rawInput || defaultEventName;
+      const csv = getCsvOutput();
       const baseName = previousEventName || defaultEventName;
 
       let prevHome = "", prevAway = "";
@@ -635,16 +679,6 @@ export function initMarketTabs() {
       if (baseParts.length === 2) {
         prevHome = baseParts[0].trim();
         prevAway = baseParts[1].trim();
-      }
-
-      let newHome = "", newAway = "";
-      let newParts = newName.split(/\s+-\s+/);
-      if (newParts.length !== 2) {
-        newParts = newName.split(/\s*-\s*/);
-      }
-      if (newParts.length === 2) {
-        newHome = newParts[0].trim();
-        newAway = newParts[1].trim();
       }
 
       if (csv) {

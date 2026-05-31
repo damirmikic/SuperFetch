@@ -379,12 +379,42 @@ select:disabled {
   color: var(--text);
   font-family: inherit;
   font-size: 13px;
-  transition: border-color var(--t);
+  transition: border-color var(--t), box-shadow var(--t);
 }
 
 .event-rewrite-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.event-rewrite-input.is-invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(248, 81, 73, 0.2);
+}
+
+.event-rewrite-input.is-invalid:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(248, 81, 73, 0.4);
+}
+
+.info-btn {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  transition: color var(--t);
+  flex-shrink: 0;
+}
+
+.info-btn:hover {
+  color: var(--accent);
 }
 
 .event-rewrite-input::placeholder {
