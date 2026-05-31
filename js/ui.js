@@ -867,7 +867,7 @@ function isMarketSelected(market) {
   }
 }
 
-function isPlayerOddSelected(marketName, odd) {
+function isPlayerOddSelected(playerName, marketName, odd) {
   const csv = elements.csvOutput.value;
   if (!csv) return false;
   
@@ -878,7 +878,7 @@ function isPlayerOddSelected(marketName, odd) {
   const m = getOuMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
   const row = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
-  return csvContainsRow(csv, row);
+  return csvContainsPlayerRow(csv, playerName, row);
 }
 
 
@@ -989,7 +989,7 @@ function createPlayerGroupCard(query, matches, side) {
   selectBtn.type = "button";
 
   const defaultOdds = matches.filter(({ marketName }) => isDefaultPlayerMarket(marketName));
-  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(marketName, odd));
+  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(query, marketName, odd));
 
   if (allDefaultsSelected) {
     selectBtn.classList.add("is-selected");
@@ -1007,13 +1007,13 @@ function createPlayerGroupCard(query, matches, side) {
   const sortedMatches = [...matches].sort((a, b) => {
     const aDefault = isDefaultPlayerMarket(a.marketName);
     const bDefault = isDefaultPlayerMarket(b.marketName);
-    const aSelected = isPlayerOddSelected(a.marketName, a.odd);
-    const bSelected = isPlayerOddSelected(b.marketName, b.odd);
+    const aSelected = isPlayerOddSelected(query, a.marketName, a.odd);
+    const bSelected = isPlayerOddSelected(query, b.marketName, b.odd);
     const aVal = (aDefault && aSelected) ? 1 : 0;
     const bVal = (bDefault && bSelected) ? 1 : 0;
     return bVal - aVal;
   });
-  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
+  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(query, marketName, odd)));
 
   const normQuery = normalizeSearchText(query);
   if (expandedPlayers.has(normQuery)) {
@@ -1072,7 +1072,7 @@ function createPlayerGroupCard(query, matches, side) {
   return card;
 }
 
-function createPlayerOddRow(marketName, odd) {
+function createPlayerOddRow(playerName, marketName, odd) {
   const row = document.createElement("div");
   const text = document.createElement("div");
   const market = document.createElement("span");
@@ -1118,7 +1118,7 @@ function createPlayerOddRow(marketName, odd) {
         const oldRow = addButton.dataset.csvRow;
         const event = currentEvent;
         const adjustedOdd = pM !== 1 ? { ...odd, price: odd.price * pM } : odd;
-        const newRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
+        const newRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
         if (newRow && oldRow && newRow !== oldRow) {
           addButton.dataset.csvRow = newRow;
           addButton.dataset.originalPrice = odd.price;
@@ -1140,8 +1140,8 @@ function createPlayerOddRow(marketName, odd) {
   const event = currentEvent;
   const pM = getOuMarginMultiplier();
   const adjustedOdd = pM !== 1 ? { ...odd, price: odd.price * pM } : odd;
-  const pRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd });
-  if (csvContainsRow(elements.csvOutput.value, pRow)) {
+  const pRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
+  if (csvContainsPlayerRow(elements.csvOutput.value, playerName, pRow)) {
     addButton.classList.add("is-added");
     addButton.textContent = "✓";
     addButton.title = "Remove from CSV";
@@ -1536,6 +1536,27 @@ function csvContainsRow(csv, row) {
   return String(csv).split(/\r?\n/).some((line) => line === row);
 }
 
+function csvContainsPlayerRow(csv, playerName, row) {
+  if (!csv || !row) return false;
+  const lines = csv.split(/\r?\n/);
+  const normPlayer = normalizeSearchText(playerName);
+
+  let currentPlayer = null;
+  for (const line of lines) {
+    if (line.startsWith("LEAGUE_NAME:")) {
+      currentPlayer = normalizeSearchText(line.slice("LEAGUE_NAME:".length).trim());
+    } else if (line.startsWith("MATCH_NAME:")) {
+      currentPlayer = null;
+    } else if (line.trim() === row.trim()) {
+      console.log(`[csvContainsPlayerRow] Match line found! row: "${row.trim()}", currentPlayer: "${currentPlayer}", normPlayer: "${normPlayer}"`);
+      if (currentPlayer === normPlayer) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function findVisibleStatistikaButton(marketUuid, odd = null) {
   for (const button of document.querySelectorAll(".add-odd-button")) {
     if (button.closest("#default-btn-host")) continue;
@@ -1772,7 +1793,7 @@ function createPlayerGroupCardBasketball(query, matches) {
   selectBtn.type = "button";
 
   const defaultOdds = matches.filter(({ marketName }) => isDefaultPlayerMarket(marketName));
-  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(marketName, odd));
+  const allDefaultsSelected = defaultOdds.length > 0 && defaultOdds.every(({ marketName, odd }) => isPlayerOddSelected(query, marketName, odd));
 
   if (allDefaultsSelected) {
     selectBtn.classList.add("is-selected");
@@ -1790,13 +1811,13 @@ function createPlayerGroupCardBasketball(query, matches) {
   const sortedMatches = [...matches].sort((a, b) => {
     const aDefault = isDefaultPlayerMarket(a.marketName);
     const bDefault = isDefaultPlayerMarket(b.marketName);
-    const aSelected = isPlayerOddSelected(a.marketName, a.odd);
-    const bSelected = isPlayerOddSelected(b.marketName, b.odd);
+    const aSelected = isPlayerOddSelected(query, a.marketName, a.odd);
+    const bSelected = isPlayerOddSelected(query, b.marketName, b.odd);
     const aVal = (aDefault && aSelected) ? 1 : 0;
     const bVal = (bDefault && bSelected) ? 1 : 0;
     return bVal - aVal;
   });
-  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(marketName, odd)));
+  oddsList.append(...sortedMatches.map(({ marketName, odd }) => createPlayerOddRow(query, marketName, odd)));
 
   const normQuery = normalizeSearchText(query);
   if (expandedPlayers.has(normQuery)) {
