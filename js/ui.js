@@ -608,10 +608,12 @@ function filterMarketsByTab(markets, tab) {
 const BASKETBALL_STATISTIKA_KEYWORDS = [
   "asistencija", "asistencije",
   "skokova", "skokovi", "skok",
+  "blokada", "blokade", "blokova", "blok",
   "izgubljenih lopti", "izgubljene lopte",
   "ukradenih lopti", "ukradene lopte",
   "slobodnih bacanja", "slobodna bacanja",
-  "pogodaka za 3 poena", "postignutih 3 poena", "3 poena"
+  "pogodaka za 3 poena", "postignutih 3 poena", "3 poena",
+  "trojki", "trojke"
 ];
 
 const TENNIS_STATISTIKA_KEYWORDS = [
@@ -1534,11 +1536,17 @@ const DEFAULT_MARKET_BASES = [
 const BASKETBALL_DEFAULT_MARKET_BASES = [
   "Ukupno asistencija (uklj. produžetke)",
   "Ukupno skokova (uklj. produžetke)",
+  "Ukupno blokada (uklj. produžetke)",
+  "Ukupno trojki (uklj. produžetke)",
   "Ukupno postignutih 3 poena (uklj. produžetke)",
   "{home} - Ukupno asistencija (uklj. produžetke)",
   "{away} - Ukupno asistencija (uklj. produžetke)",
   "Ukupno skokova {home} (uklj. produžetke)",
   "Ukupno skokova {away} (uklj. produžetke)",
+  "Ukupno blokada {home} (uklj. produžetke)",
+  "Ukupno blokada {away} (uklj. produžetke)",
+  "{home} - Ukupno trojki (uklj. produžetke)",
+  "{away} - Ukupno trojki (uklj. produžetke)",
   "{home} - Ukupno pogodaka za 3 poena (uklj. produžetke)",
   "{away} - Ukupno pogodaka za 3 poena (uklj. produžetke)"
 ];
