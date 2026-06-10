@@ -1478,7 +1478,8 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
     addBtn.textContent = "+";
   }
 
-  addBtn.addEventListener("click", () => {
+  addBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
     if (addBtn.classList.contains("is-added")) {
       document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
     } else {
@@ -1487,6 +1488,11 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
       const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName } : odd;
       document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: currentMarketName, odd: dispatchOdd, button: addBtn } }));
     }
+  });
+
+  button.addEventListener("click", (e) => {
+    if (e.target.closest(".odd-price")) return;
+    addBtn.click();
   });
 
   const wrapper = document.createElement("div");
