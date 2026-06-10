@@ -978,7 +978,7 @@ export function detectCsvState(csv) {
   
   for (const line of lines) {
     if (line.startsWith("MATCH_NAME:")) {
-      currentMatchName = line.slice("MATCH_NAME:".length).trim();
+      currentMatchName = line.slice("MATCH_NAME:".length).split(",")[0].trim();
       if (currentMatchName !== "Specijal") {
         hasPlayers = true;
       }

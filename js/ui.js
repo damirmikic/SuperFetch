@@ -1094,7 +1094,7 @@ function createPlayerGroupCard(query, matches, side) {
       }
       const csvLines = csvValue.split(/\r?\n/);
       const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
-      const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+      const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length).split(",")[0].trim() : "";
       if (csvTeam === "Specijal") {
         const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
           .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== side);
@@ -1953,7 +1953,7 @@ function createPlayerGroupCardBasketball(query, matches) {
       if (csvValue) {
         const csvLines = csvValue.split(/\r?\n/);
         const firstMatchLine = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
-        const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length) : "";
+        const csvTeam = firstMatchLine ? firstMatchLine.slice("MATCH_NAME:".length).split(",")[0].trim() : "";
         if (csvTeam === "Specijal") {
           const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
             .some((btn) => btn.dataset.playerTeam && btn.dataset.playerTeam !== currentSide);

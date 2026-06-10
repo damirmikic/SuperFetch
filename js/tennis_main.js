@@ -157,7 +157,7 @@ document.addEventListener("add-odd-to-csv", ({ detail: { marketName, odd, button
   } else {
     const csvLines = existing.split(/\r?\n/);
     const firstMatch = csvLines.find((l) => l.startsWith("MATCH_NAME:"));
-    const csvTeam = firstMatch ? firstMatch.slice("MATCH_NAME:".length) : "";
+    const csvTeam = firstMatch ? firstMatch.slice("MATCH_NAME:".length).split(",")[0].trim() : "";
 
     if (csvTeam === "Specijal") {
       const differentTeamAdded = Array.from(document.querySelectorAll(".add-odd-button.is-added"))
@@ -326,7 +326,7 @@ function getPlayerTeamFromCsv(csv) {
   if (!csv) return null;
   const line = csv.split(/\r?\n/).find((l) => l.startsWith("MATCH_NAME:"));
   if (!line) return null;
-  const name = line.slice("MATCH_NAME:".length).trim();
+  const name = line.slice("MATCH_NAME:".length).split(",")[0].trim();
   return name && name !== "Specijal" ? name : null;
 }
 
