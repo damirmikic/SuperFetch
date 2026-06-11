@@ -84,5 +84,6 @@ The preset list, in order:
 | {home} / {away} Ukupno faulova | most balanced line, both teams |
 | Ukupno ofsajda | most balanced line |
 | {home} / {away} ukupno ofsajda | most balanced line, both teams |
+| Ukupno dosuđenih penala | Više od 0.5 (1+) line |
 | Ukupno šuteva | most balanced line |
 | Ukupno šuteva {home} / {away} | most balanced line, both teams |

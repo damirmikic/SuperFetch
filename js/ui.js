@@ -534,6 +534,7 @@ const STATISTIKA_KEYWORDS = [
   "karton", "kartoni", "crveni karton", "zuti karton", "žuti karton",
   "faul", "faulovi",
   "ofsajd", "ofsajdi",
+  "penal", "penali", "penala",
   "autogol", "auto gol", "own goal",
   "šut", "sut", "sutev", "šuteva", "udarac", "udarci",
   "šutevi na gol", "sutevi na gol", "šuteve u okvir", "suteve u okvir",
@@ -1589,7 +1590,13 @@ const DEFAULT_MARKET_BASES = [
   "Ukupno ofsajda",
   "{home} ukupno ofsajda",
   "{away} ukupno ofsajda",
+  "Ukupno dosuđenih penala",
 ];
+
+const DEFAULT_OU_MARKET_RULES = new Map([
+  ["ukupno dosudenih penala", { overLine: 0.5 }],
+  ["ukupno dosudjenih penala", { overLine: 0.5 }],
+]);
 
 
 const BASKETBALL_DEFAULT_MARKET_BASES = [
@@ -1724,6 +1731,22 @@ function _balanceScore(market) {
   return (under != null && over != null) ? Math.abs(under - over) : Infinity;
 }
 
+function _extractOddLine(odd) {
+  const m = String(odd?.name || "").match(/(\d+(?:[.,]\d+)?)/);
+  return m ? Number(m[1].replace(",", ".")) : NaN;
+}
+
+function _matchesDefaultOuRule(market, rule) {
+  if (!rule) return true;
+  if (Number.isFinite(rule.overLine)) {
+    return market.odds.some((odd) => {
+      const norm = normalizeSearchText(odd.name);
+      return (norm.includes("vise") || norm.includes("over")) && _extractOddLine(odd) === rule.overLine;
+    });
+  }
+  return true;
+}
+
 export function addDefaultStatistikaMarkets() {
   if (!currentEvent || !currentMarkets.length) return;
 
@@ -1788,7 +1811,11 @@ export function addDefaultStatistikaMarkets() {
         }
       }
     } else {
-      const best = matches.reduce((b, m) => _balanceScore(m) < _balanceScore(b) ? m : b);
+      const rule = DEFAULT_OU_MARKET_RULES.get(specNorm);
+      const ruleMatches = rule ? matches.filter((m) => _matchesDefaultOuRule(m, rule)) : matches;
+      if (!ruleMatches.length) continue;
+
+      const best = ruleMatches.reduce((b, m) => _balanceScore(m) < _balanceScore(b) ? m : b);
       const specKey = specNorm;
       if (host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) continue;
 
