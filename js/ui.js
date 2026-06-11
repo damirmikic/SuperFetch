@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -390,6 +390,12 @@ export function refreshDisplayedPrices() {
 export async function renderMarketsForCurrentFilter(preserveScroll = false) {
   const scrollY = window.scrollY;
 
+  const rewrittenTeams = getRewrittenTeamNames();
+  const homeTab = document.querySelector('[data-tab="home-players"]');
+  const awayTab = document.querySelector('[data-tab="away-players"]');
+  if (homeTab) homeTab.textContent = rewrittenTeams.home || "Dom. igrači";
+  if (awayTab) awayTab.textContent = rewrittenTeams.away || "Gost. igrači";
+
   const startSifraContainer = document.querySelector("#start-sifra-container");
   if (startSifraContainer) {
     startSifraContainer.style.display = (activeMarketTab === "simulation") ? "inline-flex" : "none";
@@ -484,7 +490,7 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
 
   const searchNorm = normalizeSearchText(marketSearch);
   const visible = searchNorm
-    ? tabFiltered.filter((m) => normalizeSearchText(m.marketName).includes(searchNorm))
+    ? tabFiltered.filter((m) => normalizeSearchText(getRewrittenString(m.marketName, currentEvent, getEventName())).includes(searchNorm))
     : tabFiltered;
 
   if (!visible.length) {
@@ -674,102 +680,132 @@ export function initMarketTabs() {
   document.addEventListener("add-statistika-to-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
   document.addEventListener("remove-statistika-from-csv", () => setTimeout(() => renderMarketsForCurrentFilter(true), 0));
 
+function replaceTeamNameInCsv(csv, oldTeam, newTeam) {
+  if (!csv) return csv;
+  const lines = csv.split(/\r?\n/);
+  if (lines.length <= 1) return csv;
+  const replaced = [
+    lines[0],
+    ...lines.slice(1).map(line => replaceTeamNameInText(line, oldTeam, newTeam))
+  ];
+  return replaced.join("\r\n");
+}
+
   if (elements.eventNameRewrite) {
+    let debounceTimer = null;
     elements.eventNameRewrite.addEventListener("input", () => {
-      const rawInput = elements.eventNameRewrite.value.trim();
-      const event = getSelectedEvent();
-      if (!event) return;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const rawInput = elements.eventNameRewrite.value.trim();
+        const event = getSelectedEvent();
+        if (!event) return;
 
-      const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : (event.matchName || "");
+        const defaultEventName = event.homeTeam && event.awayTeam ? `${event.homeTeam} - ${event.awayTeam}` : (event.matchName || "");
 
-      // 1. Validate custom input format
-      let isValid = false;
-      let newHome = "", newAway = "";
+        // 1. Validate custom input format
+        let isValid = false;
+        let newHome = "", newAway = "";
 
-      if (rawInput === "") {
-        isValid = true; // Empty is valid (reverts to default)
-        const defaultParts = defaultEventName.split(/\s+-\s+/);
-        if (defaultParts.length === 2) {
-          newHome = defaultParts[0].trim();
-          newAway = defaultParts[1].trim();
-        }
-      } else {
-        let parts = rawInput.split(/\s+-\s+/);
-        if (parts.length !== 2) {
-          parts = rawInput.split(/\s*-\s*/);
-        }
-        if (parts.length === 2) {
-          newHome = parts[0].trim();
-          newAway = parts[1].trim();
-          if (newHome && newAway) {
-            isValid = true;
+        if (rawInput === "") {
+          isValid = true; // Empty is valid (reverts to default)
+          const defaultParts = defaultEventName.split(/\s+-\s+/);
+          if (defaultParts.length === 2) {
+            newHome = defaultParts[0].trim();
+            newAway = defaultParts[1].trim();
           }
-        }
-      }
-
-      if (!isValid) {
-        elements.eventNameRewrite.classList.add("is-invalid");
-        return; // Prevent updating CSV / state
-      }
-
-      elements.eventNameRewrite.classList.remove("is-invalid");
-
-      const newName = rawInput || defaultEventName;
-      const csv = getCsvOutput();
-      const baseName = previousEventName || defaultEventName;
-
-      let prevHome = "", prevAway = "";
-      let baseParts = baseName.split(/\s+-\s+/);
-      if (baseParts.length !== 2) {
-        baseParts = baseName.split(/\s*-\s*/);
-      }
-      if (baseParts.length === 2) {
-        prevHome = baseParts[0].trim();
-        prevAway = baseParts[1].trim();
-      }
-
-      if (csv) {
-        let newCsv = csv;
-        
-        // 1. Replace team names in CSV body
-        if (prevHome && newHome && prevHome !== newHome) {
-          newCsv = replaceTeamNameInText(newCsv, prevHome, newHome);
-        }
-        if (prevAway && newAway && prevAway !== newAway) {
-          newCsv = replaceTeamNameInText(newCsv, prevAway, newAway);
-        }
-
-        // 2. Replace LEAGUE_NAME line
-        const lines = newCsv.split(/\r?\n/);
-        const hasSpecijal = lines.some(line => line.startsWith("MATCH_NAME:Specijal"));
-        if (hasSpecijal) {
-          newCsv = lines.map(line => {
-            if (line.startsWith("LEAGUE_NAME:")) {
-              return `LEAGUE_NAME:${newName}`;
+        } else {
+          let parts = rawInput.split(/\s+-\s+/);
+          if (parts.length !== 2) {
+            parts = rawInput.split(/\s*-\s*/);
+          }
+          if (parts.length === 2) {
+            newHome = parts[0].trim();
+            newAway = parts[1].trim();
+            if (newHome && newAway) {
+              isValid = true;
             }
-            return line;
-          }).join("\r\n");
-        }
-
-        // 3. Update button datasets
-        for (const btn of document.querySelectorAll(".add-odd-button, .player-select-btn")) {
-          if (btn.dataset.csvRow) {
-            let row = btn.dataset.csvRow;
-            if (prevHome && newHome && prevHome !== newHome) {
-              row = replaceTeamNameInText(row, prevHome, newHome);
-            }
-            if (prevAway && newAway && prevAway !== newAway) {
-              row = replaceTeamNameInText(row, prevAway, newAway);
-            }
-            btn.dataset.csvRow = row;
           }
         }
 
-        const filename = makeCsvFilename(event, newName);
-        renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
-      }
+        if (!isValid) {
+          elements.eventNameRewrite.classList.add("is-invalid");
+          return; // Prevent updating CSV / state
+        }
 
-      previousEventName = newName;
+        elements.eventNameRewrite.classList.remove("is-invalid");
+
+        const newName = rawInput || defaultEventName;
+        const csv = getCsvOutput();
+        const baseName = previousEventName || defaultEventName;
+
+        let prevHome = "", prevAway = "";
+        let baseParts = baseName.split(/\s+-\s+/);
+        if (baseParts.length !== 2) {
+          baseParts = baseName.split(/\s*-\s*/);
+        }
+        if (baseParts.length === 2) {
+          prevHome = baseParts[0].trim();
+          prevAway = baseParts[1].trim();
+        }
+
+        if (csv) {
+          let newCsv = csv;
+          
+          // 1. Replace team names in CSV body, keeping header row intact
+          if (prevHome && newHome && prevHome !== newHome) {
+            newCsv = replaceTeamNameInCsv(newCsv, prevHome, newHome);
+            if (toAsciiMarketName(prevHome) !== prevHome) {
+              newCsv = replaceTeamNameInCsv(newCsv, toAsciiMarketName(prevHome), toAsciiMarketName(newHome));
+            }
+          }
+          if (prevAway && newAway && prevAway !== newAway) {
+            newCsv = replaceTeamNameInCsv(newCsv, prevAway, newAway);
+            if (toAsciiMarketName(prevAway) !== prevAway) {
+              newCsv = replaceTeamNameInCsv(newCsv, toAsciiMarketName(prevAway), toAsciiMarketName(newAway));
+            }
+          }
+
+          // 2. Replace LEAGUE_NAME line
+          const lines = newCsv.split(/\r?\n/);
+          const hasSpecijal = lines.some(line => line.startsWith("MATCH_NAME:Specijal"));
+          if (hasSpecijal) {
+            newCsv = lines.map(line => {
+              if (line.startsWith("LEAGUE_NAME:")) {
+                return `LEAGUE_NAME:${newName}`;
+              }
+              return line;
+            }).join("\r\n");
+          }
+
+          // 3. Update button datasets
+          for (const btn of document.querySelectorAll(".add-odd-button, .player-select-btn")) {
+            if (btn.dataset.csvRow) {
+              let row = btn.dataset.csvRow;
+              if (prevHome && newHome && prevHome !== newHome) {
+                row = replaceTeamNameInText(row, prevHome, newHome);
+                if (toAsciiMarketName(prevHome) !== prevHome) {
+                  row = replaceTeamNameInText(row, toAsciiMarketName(prevHome), toAsciiMarketName(newHome));
+                }
+              }
+              if (prevAway && newAway && prevAway !== newAway) {
+                row = replaceTeamNameInText(row, prevAway, newAway);
+                if (toAsciiMarketName(prevAway) !== prevAway) {
+                  row = replaceTeamNameInText(row, toAsciiMarketName(prevAway), toAsciiMarketName(newAway));
+                }
+              }
+              btn.dataset.csvRow = row;
+            }
+          }
+
+          const filename = makeCsvFilename(event, newName);
+          renderCsvOutput(newCsv, filename, countCsvRows(newCsv));
+        }
+
+        previousEventName = newName;
+
+        // Re-render the markets list with the new team names
+        renderMarketsForCurrentFilter(true);
+      }, 150);
     });
   }
 }
@@ -1182,8 +1218,11 @@ function createPlayerOddRow(playerName, marketName, odd) {
     }
   });
 
-  market.textContent = marketName;
-  name.textContent = odd.name;
+  const rewrittenEventName = getEventName();
+  const finalMarketName = getRewrittenString(marketName, currentEvent, rewrittenEventName);
+  const finalOddName = getRewrittenString(odd.name, currentEvent, rewrittenEventName);
+  market.textContent = finalMarketName;
+  name.textContent = finalOddName;
   price.dataset.marketType = "ou";
   price.dataset.originalPrice = odd.price;
   price.textContent = Number.isFinite(odd.price) ? (odd.price * getOuMarginMultiplier()).toFixed(2) : "-";
@@ -1191,7 +1230,7 @@ function createPlayerOddRow(playerName, marketName, odd) {
   const event = currentEvent;
   const pM = getOuMarginMultiplier();
   const adjustedOdd = pM !== 1 ? { ...odd, price: odd.price * pM } : odd;
-  const pRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
+  const pRow = buildSingleOddCsvRow({ event, marketName, odd: adjustedOdd, rewrittenEventName });
   if (csvContainsPlayerRow(elements.csvOutput.value, playerName, pRow)) {
     addButton.classList.add("is-added");
     addButton.textContent = "✓";
@@ -1254,12 +1293,14 @@ function createMarketCard(market) {
   const isCombo = isMarketCombo(market);
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
   const isSplitStatistika = isStatistika && market.odds.length >= 3;
+  const rewrittenEventName = getEventName();
+  const finalMarketName = getRewrittenString(market.marketName, currentEvent, rewrittenEventName);
 
   card.className = isCombo ? "market-card market-card--combo" : "market-card";
   oddsGrid.className = "odds-grid";
 
   if (isCombo) {
-    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", market.marketName, market.uuid), odd }));
+    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", finalMarketName, market.uuid), odd }));
     oddsGrid.append(...comboEntries.map((e) => e.wrapper));
 
     const titleArea = document.createElement("div");
@@ -1271,18 +1312,18 @@ function createMarketCard(market) {
     title.className = "market-title market-title--editable";
     title.contentEditable = "true";
     title.spellcheck = false;
-    title.textContent = market.marketName;
+    title.textContent = finalMarketName;
     resetBtn.className = "market-reset-btn";
     resetBtn.type = "button";
     resetBtn.title = "Vrati originalni naziv";
     resetBtn.textContent = "↺";
     resetBtn.hidden = true;
     originalNameEl.className = "market-original-name";
-    originalNameEl.textContent = market.marketName;
+    originalNameEl.textContent = finalMarketName;
     originalNameEl.hidden = true;
 
     const applyEdit = (newName) => {
-      const changed = newName !== market.marketName;
+      const changed = newName !== finalMarketName;
       resetBtn.hidden = !changed;
       originalNameEl.hidden = !changed;
       for (const { wrapper, odd } of comboEntries) {
@@ -1299,22 +1340,22 @@ function createMarketCard(market) {
           const oddForRow = lbl?.dataset.usesMarketName === "true"
             ? { ...odd, name: newName, price }
             : { ...odd, price };
-          const newRow = buildSpecijalRow({ event: currentEvent, marketName: newName, odd: oddForRow });
+          const newRow = buildSpecijalRow({ event: currentEvent, marketName: newName, odd: oddForRow, rewrittenEventName: getEventName() });
           document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: addBtn } }));
         }
       }
     };
 
     title.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); title.blur(); } });
-    title.addEventListener("input", () => { applyEdit(title.textContent.trim() || market.marketName); });
-    resetBtn.addEventListener("click", () => { title.textContent = market.marketName; applyEdit(market.marketName); });
+    title.addEventListener("input", () => { applyEdit(title.textContent.trim() || finalMarketName); });
+    resetBtn.addEventListener("click", () => { title.textContent = finalMarketName; applyEdit(finalMarketName); });
 
     titleArea.append(title, resetBtn);
     card.append(titleArea, originalNameEl, oddsGrid);
     return card;
   }
 
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? market.marketName : null, market.uuid, isStatistika && !isSplitStatistika)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? finalMarketName : null, market.uuid, isStatistika && !isSplitStatistika)));
 
   if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
@@ -1322,7 +1363,7 @@ function createMarketCard(market) {
     const addBtn = document.createElement("button");
     titleArea.className = "market-title-area";
     title.className = "market-title";
-    title.textContent = market.marketName;
+    title.textContent = finalMarketName;
     addBtn.className = "add-odd-button";
     addBtn.type = "button";
     addBtn.dataset.marketUuid = market.uuid;
@@ -1334,7 +1375,7 @@ function createMarketCard(market) {
     const adjustedMarket = m !== 1
       ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
       : market;
-    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+    const row = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket, rewrittenEventName: getEventName() });
     if (csvContainsRow(elements.csvOutput.value, row)) {
       addBtn.classList.add("is-added");
       addBtn.textContent = "✓";
@@ -1361,7 +1402,7 @@ function createMarketCard(market) {
   } else {
     const title = document.createElement("h3");
     title.className = "market-title";
-    title.textContent = market.marketName;
+    title.textContent = finalMarketName;
     card.append(title, oddsGrid);
   }
 
@@ -1412,7 +1453,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
           const adjustedMarket = m !== 1
             ? { ...market, odds: market.odds.map((o) => ({ ...o, price: o.price * m })) }
             : market;
-          const newRow = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket });
+          const newRow = buildStatistikaMarketCsvRow({ event: currentEvent, market: adjustedMarket, rewrittenEventName: getEventName() });
           if (newRow && oldRow && newRow !== oldRow) {
             marketAddBtn.dataset.csvRow = newRow;
             document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: marketAddBtn } }));
@@ -1429,7 +1470,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
         const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
         const currentMarketName = addBtn.dataset.currentMarketName;
         const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName, price: adjustedOdd.price } : adjustedOdd;
-        const newRow = buildSpecijalRow({ event: currentEvent, marketName: currentMarketName, odd: dispatchOdd });
+        const newRow = buildSpecijalRow({ event: currentEvent, marketName: currentMarketName, odd: dispatchOdd, rewrittenEventName: getEventName() });
         if (newRow && oldRow && newRow !== oldRow) {
           addBtn.dataset.csvRow = newRow;
           addBtn.dataset.originalPrice = odd.price;
@@ -1442,7 +1483,12 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
     }
   });
 
-  label.textContent = contextText ? `${contextText} - ${odd.name}` : odd.name;
+  const rewrittenEventName = getEventName();
+  const finalComboMarketName = getRewrittenString(comboMarketName, currentEvent, rewrittenEventName);
+  const finalOddName = getRewrittenString(odd.name, currentEvent, rewrittenEventName);
+  const finalContextText = getRewrittenString(contextText, currentEvent, rewrittenEventName);
+
+  label.textContent = finalContextText ? `${finalContextText} - ${finalOddName}` : finalOddName;
   price.dataset.marketType = isOu ? "ou" : "outright";
   price.dataset.originalPrice = odd.price;
   const m = isOu ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
@@ -1459,7 +1505,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   addBtn.className = "add-odd-button add-odd-button--inline";
   addBtn.type = "button";
   addBtn.title = "Add to CSV as Specijali";
-  addBtn.dataset.currentMarketName = comboMarketName;
+  addBtn.dataset.currentMarketName = finalComboMarketName;
   addBtn.dataset.marketType = "outright";
   if (marketUuid) addBtn.dataset.marketUuid = marketUuid;
   if (odd.uuid) addBtn.dataset.oddUuid = odd.uuid;
@@ -1467,7 +1513,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   const type = "outright";
   const marginM = getOutrightMarginMultiplier();
   const adjustedOdd = marginM !== 1 ? { ...odd, price: odd.price * marginM } : odd;
-  const row = buildSpecijalRow({ event: currentEvent, marketName: comboMarketName, odd: adjustedOdd });
+  const row = buildSpecijalRow({ event: currentEvent, marketName: finalComboMarketName, odd: adjustedOdd, rewrittenEventName });
   if (csvContainsRow(elements.csvOutput.value, row)) {
     addBtn.classList.add("is-added");
     addBtn.textContent = "✓";

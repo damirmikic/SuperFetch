@@ -29,9 +29,11 @@ export function getRewrittenString(str, event, rewrittenEventName) {
   let result = str;
   if (originalHome && rewrittenHome && originalHome !== rewrittenHome) {
     result = replaceTeamNameInText(result, originalHome, rewrittenHome);
+    result = replaceTeamNameInText(result, toAsciiMarketName(originalHome), rewrittenHome);
   }
   if (originalAway && rewrittenAway && originalAway !== rewrittenAway) {
     result = replaceTeamNameInText(result, originalAway, rewrittenAway);
+    result = replaceTeamNameInText(result, toAsciiMarketName(originalAway), rewrittenAway);
   }
   return result;
 }
@@ -373,7 +375,7 @@ function stripPlayerPrefix(name) {
     .trim();
 }
 
-function toAsciiMarketName(value) {
+export function toAsciiMarketName(value) {
   return String(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
