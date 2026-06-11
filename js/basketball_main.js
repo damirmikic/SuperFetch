@@ -29,7 +29,8 @@ import {
   clearSimulationOverrides,
   getEventName,
   getRewrittenTeamNames,
-  showToast
+  showToast,
+  handleCsvDownloadWithConfirmation
 } from "./ui.js";
 
 const { select, eventSelect, refreshButton, downloadCsvButton, clearCsvButton } = getElements();
@@ -164,7 +165,10 @@ function hideEuroleagueStats() {
 select.addEventListener("change", loadEventsForSelectedCompetition);
 eventSelect.addEventListener("change", loadMarketsForSelectedEvent);
 refreshButton.addEventListener("click", loadCompetitions);
-downloadCsvButton.addEventListener("click", downloadCsv);
+downloadCsvButton.addEventListener("click", () => {
+  const currentEventId = getSelectedEvent()?.id;
+  handleCsvDownloadWithConfirmation(currentEventId, downloadCsv);
+});
 clearCsvButton.addEventListener("click", clearCsv);
 document.querySelector("#dodaj-default-button").addEventListener("click", addDefaultStatistikaMarkets);
 

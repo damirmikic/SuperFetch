@@ -1575,6 +1575,8 @@ const DEFAULT_MARKET_BASES = [
   "Ukupno kartona {home}",
   "Ukupno kartona {away}",
   "Ukupno crvenih kartona",
+  "Ukupno crvenih kartona {home}",
+  "Ukupno crvenih kartona {away}",
   "Ukupno šuteva u okvir gola",
   "{home} ukupno šuteva u okvir gola",
   "{away} ukupno šuteva u okvir gola",
@@ -1582,8 +1584,13 @@ const DEFAULT_MARKET_BASES = [
   "Ukupno šuteva {home}",
   "Ukupno šuteva {away}",
   "Ukupno faulova",
+  "{home} Ukupno faulova",
+  "{away} Ukupno faulova",
   "Ukupno ofsajda",
+  "{home} ukupno ofsajda",
+  "{away} ukupno ofsajda",
 ];
+
 
 const BASKETBALL_DEFAULT_MARKET_BASES = [
   "Ukupno asistencija (uklj. produžetke)",
@@ -3172,6 +3179,97 @@ export function showToast(message, type = "info") {
 
   // Auto dismiss after 8 seconds
   setTimeout(dismiss, 8000);
+}
+
+export let lastPromptEventId = null;
+export let lastPromptTimestamp = 0;
+
+export function showEventNameConfirmationModal(onConfirm, onEdit) {
+  // Remove any existing toast first
+  const existing = document.querySelector(".toast-container");
+  if (existing) existing.remove();
+
+  const container = document.createElement("div");
+  container.className = "toast-container";
+  document.body.appendChild(container);
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast--info`; 
+
+  toast.innerHTML = `
+    <span class="toast-icon" style="font-size: 24px;">📝</span>
+    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+      <span class="toast-message" style="margin: 0; line-height: 1.4;">Da li želite da zadržite postojeći naziv eventa ili da ga izmenite pre preuzimanja?</span>
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="toast-btn-keep" type="button" style="background: var(--surface-1); border: 1px solid var(--border-color); color: var(--text-1); padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.2s;">Zadrži postojeći</button>
+        <button class="toast-btn-edit" type="button" style="background: var(--primary-color); color: var(--background); padding: 8px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: opacity 0.2s;">Izmeni ime</button>
+      </div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  // Hover effects for inline styles
+  const btnKeep = toast.querySelector('.toast-btn-keep');
+  btnKeep.addEventListener('mouseenter', () => btnKeep.style.background = 'var(--surface-2)');
+  btnKeep.addEventListener('mouseleave', () => btnKeep.style.background = 'var(--surface-1)');
+
+  const btnEdit = toast.querySelector('.toast-btn-edit');
+  btnEdit.addEventListener('mouseenter', () => btnEdit.style.opacity = '0.9');
+  btnEdit.addEventListener('mouseleave', () => btnEdit.style.opacity = '1');
+
+  // Trigger reflow to animate in
+  toast.offsetHeight;
+  toast.classList.add("is-visible");
+
+  const dismiss = () => {
+    toast.classList.remove("is-visible");
+    container.style.background = "transparent";
+    container.style.backdropFilter = "none";
+    toast.addEventListener("transitionend", () => {
+      container.remove();
+    }, { once: true });
+  };
+
+  toast.querySelector(".toast-btn-keep").addEventListener("click", () => {
+    dismiss();
+    if (onConfirm) onConfirm();
+  });
+
+  toast.querySelector(".toast-btn-edit").addEventListener("click", () => {
+    dismiss();
+    if (onEdit) onEdit();
+  });
+
+  // Clicking backdrop outside the modal dismisses it without action
+  container.addEventListener("click", (e) => {
+    if (e.target === container) dismiss();
+  });
+}
+
+export function handleCsvDownloadWithConfirmation(eventId, downloadCallback) {
+  const now = Date.now();
+  // Prompt if it's a new event OR if 10 seconds have passed since the last prompt
+  if (eventId !== lastPromptEventId || (now - lastPromptTimestamp) > 10000) {
+    showEventNameConfirmationModal(
+      () => {
+        // User confirmed existing name
+        lastPromptEventId = eventId;
+        lastPromptTimestamp = Date.now();
+        downloadCallback();
+      },
+      () => {
+        // User wants to edit, focus the input
+        lastPromptEventId = eventId;
+        lastPromptTimestamp = Date.now();
+        elements.eventNameRewrite.focus();
+        elements.eventNameRewrite.select();
+      }
+    );
+  } else {
+    // Less than 10 seconds passed on the same event, download directly
+    downloadCallback();
+  }
 }
 
 

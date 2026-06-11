@@ -77,9 +77,12 @@ The preset list, in order:
 | Ukupno kartona | most balanced line |
 | Ukupno kartona {home} / {away} | most balanced line, both teams |
 | Ukupno crvenih kartona | most balanced line |
+| Ukupno crvenih kartona {home} / {away} | most balanced line, both teams |
 | Ukupno šuteva u okvir gola | most balanced line |
 | {home} / {away} ukupno šuteva u okvir gola | most balanced line, both teams |
 | Ukupno faulova | most balanced line |
+| {home} / {away} Ukupno faulova | most balanced line, both teams |
 | Ukupno ofsajda | most balanced line |
+| {home} / {away} ukupno ofsajda | most balanced line, both teams |
 | Ukupno šuteva | most balanced line |
 | Ukupno šuteva {home} / {away} | most balanced line, both teams |
