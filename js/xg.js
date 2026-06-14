@@ -2,6 +2,12 @@ const TARGET_TOTAL_LINES = [2.5, 3.5, 4.5];
 const MAX_GOALS = 12;
 const BALANCED_LINE_THRESHOLD = 0.12;
 const BALANCE_IMPROVEMENT_THRESHOLD = 0.08;
+const WORLD_CUP_PERIOD_SHARES = [
+  { label: "0-23 min", share: 0.21 },
+  { label: "24-45 min", share: 0.2475 },
+  { label: "46-67 min", share: 0.25 },
+  { label: "68-90 min", share: 0.2925 }
+];
 
 export function calculateSoccerXg(markets, event) {
   const winnerMarket = findWinnerMarket(markets);
@@ -62,6 +68,134 @@ export function calculateSoccerXg(markets, event) {
     fitted: fit.probs,
     error: fit.error
   };
+}
+
+export function calculateWorldCupPeriodOffer(xgResult) {
+  if (!xgResult?.ok) return [];
+
+  const totalLambda = xgResult.lambdaHome + xgResult.lambdaAway;
+  if (!Number.isFinite(totalLambda) || totalLambda <= 0) return [];
+
+  return WORLD_CUP_PERIOD_SHARES.map((period) => {
+    const lambda = totalLambda * period.share;
+    const homeLambda = xgResult.lambdaHome * period.share;
+    const awayLambda = xgResult.lambdaAway * period.share;
+    const pGoal = 1 - Math.exp(-lambda);
+    const pNoGoal = 1 - pGoal;
+    return {
+      label: period.label,
+      share: period.share,
+      lambda,
+      homeLambda,
+      awayLambda,
+      yesProbability: pGoal,
+      noProbability: pNoGoal,
+      yesOdds: probabilityToOdds(pGoal),
+      noOdds: probabilityToOdds(pNoGoal)
+    };
+  });
+}
+
+export function calculateWorldCupSpecialMarkets(xgResult, event) {
+  const periods = calculateWorldCupPeriodOffer(xgResult);
+  if (periods.length !== 4) return [];
+
+  const homeTeam = event?.homeTeam || "Domaćin";
+  const awayTeam = event?.awayTeam || "Gost";
+  const q1 = periods[0];
+  const q4 = periods[3];
+  const firstThreeLambda = periods.slice(0, 3).reduce((sum, period) => sum + period.lambda, 0);
+  const markets = [];
+
+  markets.push({
+    marketName: `${homeTeam} pobeđuje sve 4 četvrtine`,
+    odds: [{ name: "Da", price: probabilityToOdds(periods.reduce((prob, period) => prob * periodWinProbability(period.homeLambda, period.awayLambda, "home"), 1)) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} pobeđuje sve 4 četvrtine`,
+    odds: [{ name: "Da", price: probabilityToOdds(periods.reduce((prob, period) => prob * periodWinProbability(period.homeLambda, period.awayLambda, "away"), 1)) }]
+  });
+  markets.push({
+    marketName: `${homeTeam} pobeđuje 1. četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(periodWinProbability(q1.homeLambda, q1.awayLambda, "home")) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} pobeđuje 1. četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(periodWinProbability(q1.homeLambda, q1.awayLambda, "away")) }]
+  });
+  markets.push({
+    marketName: `${homeTeam} daje gol u 1. četvrtini`,
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastOneProbability(q1.homeLambda)) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} daje gol u 1. četvrtini`,
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastOneProbability(q1.awayLambda)) }]
+  });
+  markets.push({
+    marketName: "GG u 1. četvrtini",
+    odds: [{ name: "Da", price: probabilityToOdds(bothTeamsScoreProbability(q1.homeLambda, q1.awayLambda)) }]
+  });
+  markets.push({
+    marketName: "2+ golova u 1. četvrtini",
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastTwoProbability(q1.lambda)) }]
+  });
+  markets.push({
+    marketName: "2+ golova u prve 3 četvrtine",
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastTwoProbability(firstThreeLambda)) }]
+  });
+  markets.push({
+    marketName: "GG u 4. četvrtini",
+    odds: [{ name: "Da", price: probabilityToOdds(bothTeamsScoreProbability(q4.homeLambda, q4.awayLambda)) }]
+  });
+  markets.push({
+    marketName: "2+ golova u 4. četvrtini",
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastTwoProbability(q4.lambda)) }]
+  });
+  markets.push({
+    marketName: `${homeTeam} daje gol u 4. četvrtini`,
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastOneProbability(q4.homeLambda)) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} daje gol u 4. četvrtini`,
+    odds: [{ name: "Da", price: probabilityToOdds(atLeastOneProbability(q4.awayLambda)) }]
+  });
+
+  return markets;
+}
+
+function periodWinProbability(homeLambda, awayLambda, side) {
+  const homePmf = poissonPmf(homeLambda, MAX_GOALS);
+  const awayPmf = poissonPmf(awayLambda, MAX_GOALS);
+  let probability = 0;
+
+  for (let homeGoals = 0; homeGoals <= MAX_GOALS; homeGoals += 1) {
+    for (let awayGoals = 0; awayGoals <= MAX_GOALS; awayGoals += 1) {
+      if (side === "home" && homeGoals > awayGoals) {
+        probability += homePmf[homeGoals] * awayPmf[awayGoals];
+      } else if (side === "away" && awayGoals > homeGoals) {
+        probability += homePmf[homeGoals] * awayPmf[awayGoals];
+      }
+    }
+  }
+
+  return probability;
+}
+
+function atLeastOneProbability(lambda) {
+  return 1 - Math.exp(-lambda);
+}
+
+function atLeastTwoProbability(lambda) {
+  return 1 - Math.exp(-lambda) * (1 + lambda);
+}
+
+function bothTeamsScoreProbability(homeLambda, awayLambda) {
+  return atLeastOneProbability(homeLambda) * atLeastOneProbability(awayLambda);
+}
+
+function probabilityToOdds(probability) {
+  if (!Number.isFinite(probability) || probability <= 0) return 999;
+  return Math.min(999, 1 / probability);
 }
 
 function findWinnerMarket(markets) {

@@ -1,6 +1,6 @@
 import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
-import { calculateSoccerXg } from "./xg.js?v=20260614-4";
+import { calculateSoccerXg, calculateWorldCupPeriodOffer, calculateWorldCupSpecialMarkets } from "./xg.js?v=20260614-6";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
 const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
@@ -37,7 +37,8 @@ const elements = {
   specijalFilterClear: document.querySelector("#specijali-filter-clear"),
   eventNameRewrite: document.querySelector("#event-name-rewrite"),
   eventNameRewriteWrap: document.querySelector("#event-name-rewrite-wrap"),
-  xgPanel: document.querySelector("#soccer-xg-panel")
+  xgPanel: document.querySelector("#soccer-xg-panel"),
+  worldCupPeriodOfferPanel: document.querySelector("#world-cup-period-offer-panel")
 };
 
 let optionIndex = new Map();
@@ -51,6 +52,8 @@ let marketSearch = "";
 let currentSportId = 5; // Default is soccer (5)
 let activeSimSubTab = "groups";
 const expandedPlayers = new Set();
+const WORLD_CUP_SPECIAL_INITIAL_MARGIN_MULTIPLIER = 0.85;
+const WORLD_CUP_SPECIAL_MAX_ODDS = 500;
 
 const WORLD_CUP_2026_FALLBACK_OUTRIGHTS = {
   "Španija": 5.50,
@@ -208,6 +211,7 @@ function updateSoccerXgPanel() {
   if (currentSportId !== 5 || !currentEvent) {
     elements.xgPanel.hidden = true;
     elements.xgPanel.replaceChildren();
+    updateWorldCupPeriodOfferPanel(null);
     return;
   }
 
@@ -220,6 +224,7 @@ function updateSoccerXgPanel() {
         <span class="xg-panel-note">Čeka markete</span>
       </div>
     `;
+    updateWorldCupPeriodOfferPanel(null);
     return;
   }
 
@@ -231,6 +236,7 @@ function updateSoccerXgPanel() {
         <span class="xg-panel-note">${escapeHtml(result.reason)}</span>
       </div>
     `;
+    updateWorldCupPeriodOfferPanel(null);
     return;
   }
 
@@ -267,6 +273,237 @@ function updateSoccerXgPanel() {
       </div>
     </div>
   `;
+  updateWorldCupPeriodOfferPanel(result);
+}
+
+function updateWorldCupPeriodOfferPanel(xgResult) {
+  if (!elements.worldCupPeriodOfferPanel) return;
+
+  if (!xgResult?.ok || !isWorldCupCompetition()) {
+    elements.worldCupPeriodOfferPanel.hidden = true;
+    elements.worldCupPeriodOfferPanel.replaceChildren();
+    return;
+  }
+
+  const periods = calculateWorldCupPeriodOffer(xgResult);
+  if (!periods.length) {
+    elements.worldCupPeriodOfferPanel.hidden = true;
+    elements.worldCupPeriodOfferPanel.replaceChildren();
+    return;
+  }
+
+  elements.worldCupPeriodOfferPanel.hidden = false;
+  const title = document.createElement("div");
+  const grid = document.createElement("div");
+  title.className = "period-offer-head";
+  title.innerHTML = `
+    <span class="field-label">World Cup specijal</span>
+    <span class="xg-panel-note">Gol u vremenskom periodu · izvedeno iz Σ ${escapeHtml((xgResult.lambdaHome + xgResult.lambdaAway).toFixed(2))}</span>
+  `;
+  grid.className = "period-offer-grid";
+  grid.append(...periods.map(createWorldCupPeriodOfferCard));
+  elements.worldCupPeriodOfferPanel.replaceChildren(title, grid);
+}
+
+function createWorldCupPeriodOfferCard(period) {
+  const card = document.createElement("article");
+  const head = document.createElement("div");
+  const title = document.createElement("strong");
+  const meta = document.createElement("span");
+  const actions = document.createElement("div");
+
+  card.className = "period-offer-card";
+  head.className = "period-offer-card-head";
+  title.textContent = period.label;
+  meta.textContent = `λ ${period.lambda.toFixed(2)} · ${(period.share * 100).toFixed(1)}%`;
+  actions.className = "period-offer-actions";
+
+  const marketName = `Gol u periodu ${period.label}`;
+  const yesOdd = { name: "Da", price: period.yesOdds };
+  const noOdd = { name: "Bez gola", price: period.noOdds };
+  actions.append(
+    createWorldCupPeriodOfferButton(marketName, yesOdd, period.yesProbability),
+    createWorldCupPeriodOfferButton(marketName, noOdd, period.noProbability)
+  );
+
+  head.append(title, meta);
+  card.append(head, actions);
+  return card;
+}
+
+function createWorldCupPeriodOfferButton(marketName, odd, probability) {
+  const wrapper = document.createElement("div");
+  const label = document.createElement("span");
+  const price = document.createElement("span");
+  const addBtn = document.createElement("button");
+  const multiplier = getOutrightMarginMultiplier();
+  const adjustedOdd = multiplier !== 1 ? { ...odd, price: odd.price * multiplier } : odd;
+  const row = buildSpecijalRow({ event: currentEvent, marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo: false });
+
+  wrapper.className = "period-offer-odd";
+  label.className = "period-offer-odd-label";
+  label.textContent = `${odd.name} ${(probability * 100).toFixed(1)}%`;
+  price.className = "period-offer-price odds-value-display";
+  price.dataset.originalPrice = String(odd.price);
+  price.dataset.marketType = "outright";
+  price.textContent = (odd.price * multiplier).toFixed(2);
+
+  addBtn.className = "add-odd-button period-offer-add";
+  addBtn.type = "button";
+  addBtn.dataset.marketType = "outright";
+  addBtn.dataset.currentMarketName = marketName;
+  addBtn.title = "Add to CSV as Specijali";
+
+  if (row && csvContainsRow(elements.csvOutput.value, row)) {
+    addBtn.classList.add("is-added");
+    addBtn.textContent = "✓";
+    addBtn.title = "Remove from CSV";
+    addBtn.dataset.csvRow = row;
+    addBtn.dataset.originalPrice = String(odd.price);
+  } else {
+    addBtn.textContent = "+";
+  }
+
+  addBtn.addEventListener("click", () => {
+    if (addBtn.classList.contains("is-added")) {
+      document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
+    } else {
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName, odd, button: addBtn, isCombo: false } }));
+    }
+  });
+
+  wrapper.append(label, price, addBtn);
+  return wrapper;
+}
+
+function createWorldCupSpecialMarketCards(searchNorm = "") {
+  if (!isWorldCupCompetition() || !currentMarkets.length || !currentEvent) return [];
+
+  const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
+  if (!xgResult.ok) return [];
+
+  const rewrittenTeams = getRewrittenTeamNames();
+  const eventForMarkets = {
+    ...currentEvent,
+    homeTeam: rewrittenTeams.home || currentEvent.homeTeam,
+    awayTeam: rewrittenTeams.away || currentEvent.awayTeam
+  };
+  const markets = calculateWorldCupSpecialMarkets(xgResult, eventForMarkets)
+    .filter((market) => !searchNorm || normalizeSearchText(market.marketName).includes(searchNorm));
+
+  return markets.map(createWorldCupSpecialMarketCard);
+}
+
+function createWorldCupSpecialMarketCard(market) {
+  const card = document.createElement("article");
+  const titleArea = document.createElement("div");
+  const title = document.createElement("h3");
+  const badge = document.createElement("span");
+  const oddsGrid = document.createElement("div");
+
+  card.className = "market-card market-card--custom-special";
+  titleArea.className = "market-title-area";
+  title.className = "market-title";
+  title.textContent = market.marketName;
+  badge.className = "custom-special-badge";
+  badge.textContent = "Naša ponuda";
+  oddsGrid.className = "odds-grid";
+  oddsGrid.append(...market.odds.map((odd) => createWorldCupSpecialOddButton(market.marketName, odd)));
+
+  titleArea.append(title, badge);
+  card.append(titleArea, oddsGrid);
+  return card;
+}
+
+function createWorldCupSpecialOddButton(marketName, odd) {
+  const wrapper = document.createElement("div");
+  const button = document.createElement("button");
+  const label = document.createElement("span");
+  const price = document.createElement("span");
+  const addBtn = document.createElement("button");
+  const baseOdd = { ...odd, price: roundWorldCupSpecialOdds(odd.price * WORLD_CUP_SPECIAL_INITIAL_MARGIN_MULTIPLIER) };
+  const multiplier = getOutrightMarginMultiplier();
+  const adjustedOdd = multiplier !== 1 ? { ...baseOdd, price: baseOdd.price * multiplier } : baseOdd;
+  const row = buildSpecijalRow({ event: currentEvent, marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo: false });
+
+  wrapper.className = "combo-odd-wrapper";
+  button.className = "odd-button odd-button--custom-special";
+  button.type = "button";
+  label.className = "odd-label";
+  label.textContent = odd.name;
+  price.className = "odd-price odds-value-display";
+  price.dataset.originalPrice = String(baseOdd.price);
+  price.dataset.marketType = "outright";
+  price.textContent = (baseOdd.price * multiplier).toFixed(2);
+
+  addBtn.className = "add-odd-button";
+  addBtn.type = "button";
+  addBtn.dataset.marketType = "outright";
+  addBtn.dataset.currentMarketName = marketName;
+  addBtn.title = "Add to CSV as Specijali";
+
+  if (row && csvContainsRow(elements.csvOutput.value, row)) {
+    addBtn.classList.add("is-added");
+    addBtn.textContent = "✓";
+    addBtn.title = "Remove from CSV";
+    addBtn.dataset.csvRow = row;
+    addBtn.dataset.originalPrice = String(baseOdd.price);
+  } else {
+    addBtn.textContent = "+";
+  }
+
+  addBtn.addEventListener("click", () => {
+    if (addBtn.classList.contains("is-added")) {
+      document.dispatchEvent(new CustomEvent("remove-specijal-from-csv", { detail: { button: addBtn } }));
+    } else {
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName, odd: baseOdd, button: addBtn, isCombo: false } }));
+    }
+  });
+
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    addBtn.click();
+  });
+
+  button.append(label, price);
+  wrapper.append(button, addBtn);
+  return wrapper;
+}
+
+function roundWorldCupSpecialOdds(price) {
+  const capped = Math.min(WORLD_CUP_SPECIAL_MAX_ODDS, Math.max(1.01, Number(price)));
+  if (!Number.isFinite(capped)) return WORLD_CUP_SPECIAL_MAX_ODDS;
+
+  const step = getWorldCupSpecialOddsStep(capped);
+  const rounded = Math.floor((capped + 1e-9) / step) * step;
+  return Math.max(1.01, Number(rounded.toFixed(2)));
+}
+
+function getWorldCupSpecialOddsStep(price) {
+  if (price < 2) return 0.01;
+  if (price < 3) return 0.02;
+  if (price < 4) return 0.05;
+  if (price < 6) return 0.1;
+  if (price < 10) return 0.2;
+  if (price < 20) return 0.5;
+  if (price < 30) return 1;
+  if (price < 50) return 2;
+  if (price < 100) return 5;
+  return 10;
+}
+
+function isWorldCupCompetition() {
+  const competition = getSelectedCompetition();
+  const text = normalizeSearchText([
+    competition?.tournamentName,
+    competition?.categoryName,
+    currentEvent?.matchName
+  ].filter(Boolean).join(" "));
+
+  return text.includes("world cup") ||
+    text.includes("svetsko") ||
+    text.includes("svjetsko") ||
+    text.includes("fifa");
 }
 
 function escapeHtml(value) {
@@ -574,8 +811,11 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
   const visible = searchNorm
     ? tabFiltered.filter((m) => normalizeSearchText(getRewrittenString(m.marketName, currentEvent, getEventName())).includes(searchNorm))
     : tabFiltered;
+  const customCards = activeMarketTab === "specijali"
+    ? createWorldCupSpecialMarketCards(searchNorm)
+    : [];
 
-  if (!visible.length) {
+  if (!visible.length && !customCards.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
     if (preserveScroll) {
       window.scrollTo(0, scrollY);
@@ -602,7 +842,7 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
   }
   const sortedVisible = [...selectedDefaults, ...unselectedDefaults, ...others];
 
-  elements.marketsList.replaceChildren(...sortedVisible.map(createMarketCard));
+  elements.marketsList.replaceChildren(...customCards, ...sortedVisible.map(createMarketCard));
   if (preserveScroll) {
     window.scrollTo(0, scrollY);
   } else {
