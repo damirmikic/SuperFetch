@@ -398,8 +398,8 @@ export function toAsciiMarketName(value) {
     .replace(/[\u00a0\u2007\u2008\u2009\u202f\u205f\u3000]/g, " ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\u0111/g, "d")
-    .replace(/\u0110/g, "D");
+    .replace(/\u0111/g, "dj")
+    .replace(/\u0110/g, "Dj");
 }
 
 export function mapOddToCsvMarket(market, odd) {
