@@ -1,5 +1,6 @@
 import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
+import { calculateSoccerXg } from "./xg.js?v=20260614-4";
 
 const datetimeDisplay = document.querySelector("#datetime-display");
 const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
@@ -35,7 +36,8 @@ const elements = {
   specijalMax: document.querySelector("#specijali-max"),
   specijalFilterClear: document.querySelector("#specijali-filter-clear"),
   eventNameRewrite: document.querySelector("#event-name-rewrite"),
-  eventNameRewriteWrap: document.querySelector("#event-name-rewrite-wrap")
+  eventNameRewriteWrap: document.querySelector("#event-name-rewrite-wrap"),
+  xgPanel: document.querySelector("#soccer-xg-panel")
 };
 
 let optionIndex = new Map();
@@ -201,6 +203,81 @@ export function getCurrentMarkets() {
   return currentMarkets;
 }
 
+function updateSoccerXgPanel() {
+  if (!elements.xgPanel) return;
+  if (currentSportId !== 5 || !currentEvent) {
+    elements.xgPanel.hidden = true;
+    elements.xgPanel.replaceChildren();
+    return;
+  }
+
+  elements.xgPanel.hidden = false;
+
+  if (!currentMarkets.length) {
+    elements.xgPanel.innerHTML = `
+      <div class="xg-panel-head">
+        <span class="field-label">Poisson xG</span>
+        <span class="xg-panel-note">Čeka markete</span>
+      </div>
+    `;
+    return;
+  }
+
+  const result = calculateSoccerXg(currentMarkets, currentEvent);
+  if (!result.ok) {
+    elements.xgPanel.innerHTML = `
+      <div class="xg-panel-head">
+        <span class="field-label">Poisson xG</span>
+        <span class="xg-panel-note">${escapeHtml(result.reason)}</span>
+      </div>
+    `;
+    return;
+  }
+
+  const teams = getRewrittenTeamNames();
+  const homeName = teams.home || result.homeTeam;
+  const awayName = teams.away || result.awayTeam;
+  const underPrice = Number(result.sourceOdds?.underPrice);
+  const overPrice = Number(result.sourceOdds?.overPrice);
+  const totalLambda = result.lambdaHome + result.lambdaAway;
+  const oddsNote = Number.isFinite(underPrice) && Number.isFinite(overPrice)
+    ? ` · U ${underPrice.toFixed(2)} / O ${overPrice.toFixed(2)}`
+    : "";
+  elements.xgPanel.innerHTML = `
+    <div class="xg-panel-head">
+      <span class="field-label">Poisson xG</span>
+      <span class="xg-panel-note">Shin + Dixon-Coles · O/U ${result.line.toFixed(1)}${oddsNote}</span>
+    </div>
+    <div class="xg-values" aria-label="Expected goals">
+      <div class="xg-team">
+        <span class="xg-team-name">${escapeHtml(homeName)}</span>
+        <strong>${result.lambdaHome.toFixed(2)}</strong>
+      </div>
+      <div class="xg-team">
+        <span class="xg-team-name">${escapeHtml(awayName)}</span>
+        <strong>${result.lambdaAway.toFixed(2)}</strong>
+      </div>
+      <div class="xg-team xg-team--rho" title="Dixon-Coles korekcija za niske rezultate">
+        <span class="xg-team-name">rho</span>
+        <strong>${result.rho.toFixed(3)}</strong>
+      </div>
+      <div class="xg-team xg-team--rho" title="Ukupna Poisson lambda">
+        <span class="xg-team-name">Σ</span>
+        <strong>${totalLambda.toFixed(2)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function setEventsLoading(competition) {
   elements.eventsStatus.classList.remove("is-error");
   elements.eventsStatus.textContent = `Loading events for ${competition.tournamentName}...`;
@@ -267,6 +344,7 @@ export function setMarketsLoading(event) {
   if (elements.eventNameRewriteWrap) {
     elements.eventNameRewriteWrap.style.display = "flex";
   }
+  updateSoccerXgPanel();
 
   resetCsvOutput("Loading markets...");
   elements.marketsList.replaceChildren(createEmptyState("Loading markets...", "⏳"));
@@ -277,6 +355,7 @@ export function setMarketsError(error) {
   elements.marketsStatus.textContent = error.message;
   currentMarkets = [];
   setKickoffTime(null);
+  updateSoccerXgPanel();
   resetCsvOutput("Unable to generate CSV");
   elements.marketsList.replaceChildren(createEmptyState("Unable to load markets.", "⚠️"));
 }
@@ -297,6 +376,7 @@ export function resetMarkets() {
   if (elements.eventNameRewriteWrap) {
     elements.eventNameRewriteWrap.style.display = "none";
   }
+  updateSoccerXgPanel();
 
   resetCsvOutput("Choose an event first");
   elements.marketsList.replaceChildren(createEmptyState("Choose an event first", "📅"));
@@ -316,6 +396,7 @@ export function renderMarkets(markets) {
   elements.marketsStatus.textContent = markets.length
     ? `${markets.length} markets loaded`
     : "No markets for selected event";
+  updateSoccerXgPanel();
 
   const dodajBtn = document.querySelector("#dodaj-default-button");
   if (dodajBtn) dodajBtn.disabled = !markets.length;
@@ -395,6 +476,7 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
   const awayTab = document.querySelector('[data-tab="away-players"]');
   if (homeTab) homeTab.textContent = rewrittenTeams.home || "Dom. igrači";
   if (awayTab) awayTab.textContent = rewrittenTeams.away || "Gost. igrači";
+  updateSoccerXgPanel();
 
   const startSifraContainer = document.querySelector("#start-sifra-container");
   if (startSifraContainer) {
@@ -3315,5 +3397,3 @@ export function handleCsvDownloadWithConfirmation(eventId, downloadCallback) {
     downloadCallback();
   }
 }
-
-

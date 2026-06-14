@@ -426,6 +426,75 @@ select:disabled {
   font-size: 13px;
 }
 
+.soccer-xg-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.soccer-xg-panel[hidden] {
+  display: none;
+}
+
+.xg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.xg-panel-note {
+  color: var(--text-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.xg-values {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.xg-team {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+
+.xg-team-name {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xg-team strong {
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.xg-team--rho {
+  min-width: 88px;
+}
+
 /* ─── Margin / odds adjustment control ─── */
 .margin-control {
   display: flex;
@@ -1241,6 +1310,19 @@ select:disabled {
     font-size: 11px;
     padding: 7px 8px;
   }
+
+  .soccer-xg-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .xg-values {
+    flex-wrap: wrap;
+  }
+
+  .xg-team {
+    flex: 1 1 140px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1251,6 +1333,21 @@ select:disabled {
   .action-btn {
     padding: 6px 10px;
     font-size: 11px;
+  }
+
+  .xg-panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .xg-panel-note {
+    white-space: normal;
+  }
+
+  .xg-team {
+    max-width: none;
+    width: 100%;
   }
 }
 
@@ -1802,8 +1899,6 @@ select:disabled {
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.25);
 }
-
-
 
 
 
