@@ -942,7 +942,7 @@ function isMarketSelected(market) {
       const type = "outright";
       const m = getOutrightMarginMultiplier();
       const adjustedOdd = m !== 1 ? { ...o, price: o.price * m } : o;
-      const row = buildSpecijalRow({ event: currentEvent, marketName: market.marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
+      const row = buildSpecijalRow({ event: currentEvent, marketName: market.marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo });
       return csvContainsRow(csv, row);
     });
   }
@@ -1341,7 +1341,7 @@ function createMarketCard(market) {
           const oddForRow = lbl?.dataset.usesMarketName === "true"
             ? { ...odd, name: newName, price }
             : { ...odd, price };
-          const newRow = buildSpecijalRow({ event: currentEvent, marketName: newName, odd: oddForRow, rewrittenEventName: getEventName() });
+          const newRow = buildSpecijalRow({ event: currentEvent, marketName: newName, odd: oddForRow, rewrittenEventName: getEventName(), isCombo: true });
           document.dispatchEvent(new CustomEvent("update-csv-row", { detail: { oldRow, newRow, button: addBtn } }));
         }
       }
@@ -1471,7 +1471,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
         const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
         const currentMarketName = addBtn.dataset.currentMarketName;
         const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName, price: adjustedOdd.price } : adjustedOdd;
-        const newRow = buildSpecijalRow({ event: currentEvent, marketName: currentMarketName, odd: dispatchOdd, rewrittenEventName: getEventName() });
+        const newRow = buildSpecijalRow({ event: currentEvent, marketName: currentMarketName, odd: dispatchOdd, rewrittenEventName: getEventName(), isCombo });
         if (newRow && oldRow && newRow !== oldRow) {
           addBtn.dataset.csvRow = newRow;
           addBtn.dataset.originalPrice = odd.price;
@@ -1514,7 +1514,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   const type = "outright";
   const marginM = getOutrightMarginMultiplier();
   const adjustedOdd = marginM !== 1 ? { ...odd, price: odd.price * marginM } : odd;
-  const row = buildSpecijalRow({ event: currentEvent, marketName: finalComboMarketName, odd: adjustedOdd, rewrittenEventName });
+  const row = buildSpecijalRow({ event: currentEvent, marketName: finalComboMarketName, odd: adjustedOdd, rewrittenEventName, isCombo: isCombo });
   if (csvContainsRow(elements.csvOutput.value, row)) {
     addBtn.classList.add("is-added");
     addBtn.textContent = "✓";
@@ -1533,7 +1533,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
       const currentMarketName = addBtn.dataset.currentMarketName;
       // For single-outcome combos the label mirrors the market name; keep "DA" in Gost even after an edit
       const dispatchOdd = label.dataset.usesMarketName === "true" ? { ...odd, name: currentMarketName } : odd;
-      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: currentMarketName, odd: dispatchOdd, button: addBtn } }));
+      document.dispatchEvent(new CustomEvent("add-specijal-to-csv", { detail: { marketName: currentMarketName, odd: dispatchOdd, button: addBtn, isCombo } }));
     }
   });
 
@@ -1806,7 +1806,7 @@ export function addDefaultStatistikaMarkets() {
           btn.dataset.marketType = "outright";
           host.appendChild(btn);
           document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
-            detail: { marketName: market.marketName, odd, button: btn }
+            detail: { marketName: market.marketName, odd, button: btn, isCombo: isCombo }
           }));
         }
       }

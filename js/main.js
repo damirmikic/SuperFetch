@@ -213,7 +213,7 @@ document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
   renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
 });
 
-document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button } }) => {
+document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button, isCombo } }) => {
   const event = getSelectedEvent();
   if (!event) return;
 
@@ -221,7 +221,7 @@ document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, b
   const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
   // Always compute the plain data row — we store it for later removal
-  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
+  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -438,7 +438,7 @@ function downloadCsv() {
     return;
   }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

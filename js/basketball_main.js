@@ -268,14 +268,14 @@ document.addEventListener("remove-odd-from-csv", ({ detail: { button } }) => {
   renderCsvOutput(newCsv, getCurrentCsvFilename(), countCsvRows(newCsv));
 });
 
-document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button } }) => {
+document.addEventListener("add-specijal-to-csv", ({ detail: { marketName, odd, button, isCombo } }) => {
   const event = getSelectedEvent();
   if (!event) return;
 
   const type = button.dataset.marketType || "outright";
   const m = type === "ou" ? getOuMarginMultiplier() : getOutrightMarginMultiplier();
   const adjustedOdd = m !== 1 ? { ...odd, price: odd.price * m } : odd;
-  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName() });
+  const row = buildSpecijalRow({ event, marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo });
   if (!row) return;
 
   const existing = getCsvOutput().trim();
@@ -484,7 +484,7 @@ function downloadCsv() {
     return;
   }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

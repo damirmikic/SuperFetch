@@ -132,7 +132,7 @@ export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName 
 /**
  * Build a single CSV data row for a specijali odd (no header lines).
  */
-export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName }) {
+export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName, isCombo }) {
   const oddNameLower = String(odd.name).toLowerCase().trim();
   if (oddNameLower === "ne" || oddNameLower === "no") return "";
 
@@ -145,7 +145,11 @@ export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName })
   }
   const market = toAsciiMarketName(String(finalMarketName).trim());
   const rawAnswer = toAsciiMarketName(String(finalOddName).trim());
-  let answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
+
+  let answer = "DA";
+  if (!isCombo && !isStatementOddName(finalOddName)) {
+    answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
+  }
 
   const marketNorm = normalizeSearchText(marketName);
   if (
@@ -165,6 +169,20 @@ export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName })
 function formatMatchName(event) {
   if (event.homeTeam && event.awayTeam) return `${event.homeTeam} - ${event.awayTeam}`;
   return event.matchName || "";
+}
+
+function isStatementOddName(name) {
+  if (!name) return false;
+  const norm = normalizeSearchText(name);
+  const keywords = [
+    "ce imati", "ce postici", "vise od", "manje od", "suteva", "šuteva",
+    "karton", "korner", "faul", "ofsajd", "golova", "pobeduje", "pobeđuje",
+    "under", "over", "goals", "cards", "corners", "points", "assist"
+  ];
+  if (keywords.some(kw => norm.includes(kw))) return true;
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 4 && name.length > 15) return true;
+  return false;
 }
 
 export function generatePlayerBlock({ event, markets, playerName }) {
@@ -377,6 +395,7 @@ function stripPlayerPrefix(name) {
 
 export function toAsciiMarketName(value) {
   return String(value)
+    .replace(/[\u00a0\u2007\u2008\u2009\u202f\u205f\u3000]/g, " ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\u0111/g, "d")
