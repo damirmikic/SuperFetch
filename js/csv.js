@@ -113,10 +113,24 @@ export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName 
       const m = String(odd.name).match(/(\d+(?:[.,]\d+)?)/);
       if (m) line = m[1].replace(",", ".");
     }
-    if (norm.includes("manje") || norm.includes("under")) {
+    if (norm.includes("manje") || norm.includes("under") || norm.includes("ispod") || norm.includes("less")) {
       underPrice = formatPrice(odd.price);
-    } else if (norm.includes("vise") || norm.includes("over")) {
+    } else if (norm.includes("vise") || norm.includes("over") || norm.includes("iznad") || norm.includes("preko") || norm.includes("more")) {
       overPrice = formatPrice(odd.price);
+    }
+  }
+
+  // Fallback if name keywords did not match
+  if (market.odds.length === 2) {
+    if (!underPrice && !overPrice) {
+      underPrice = formatPrice(market.odds[0].price);
+      overPrice = formatPrice(market.odds[1].price);
+    } else if (!underPrice) {
+      const other = market.odds.find(o => formatPrice(o.price) !== overPrice);
+      if (other) underPrice = formatPrice(other.price);
+    } else if (!overPrice) {
+      const other = market.odds.find(o => formatPrice(o.price) !== underPrice);
+      if (other) overPrice = formatPrice(other.price);
     }
   }
 
@@ -543,16 +557,23 @@ function getPlayerTeamName(playerName, markets, event) {
 }
 
 export function extractLineOrNull(text) {
-  const plus = String(text).match(/(\d+(?:[.,]\d+)?)\s*\+/);
+  const t = String(text).trim();
+  const plus = t.match(/(\d+(?:[.,]\d+)?)\s*\+/);
   if (plus) return `${plus[1].replace(",", ".")}+`;
   
-  const over = String(text).match(/(?:više od|vise od|vise|više|over)\s*(\d+(?:[.,]\d+)?)/i);
+  const prefixPlus = t.match(/\+\s*(\d+(?:[.,]\d+)?)/);
+  if (prefixPlus) return `${prefixPlus[1].replace(",", ".")}+`;
+
+  const prefixMinus = t.match(/-\s*(\d+(?:[.,]\d+)?)/);
+  if (prefixMinus) return `${prefixMinus[1].replace(",", ".")}-`;
+
+  const over = t.match(/(?:više od|vise od|vise|više|over|iznad|preko)\s*(\d+(?:[.,]\d+)?)/i);
   if (over) {
     const val = parseFloat(over[1].replace(",", "."));
     return `${Math.floor(val) + 1}+`;
   }
   
-  const under = String(text).match(/(?:manje od|manje|under)\s*(\d+(?:[.,]\d+)?)/i);
+  const under = t.match(/(?:manje od|manje|under|ispod)\s*(\d+(?:[.,]\d+)?)/i);
   if (under) {
     const val = parseFloat(under[1].replace(",", "."));
     return `${Math.floor(val)}-`;

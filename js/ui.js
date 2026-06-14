@@ -503,17 +503,22 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
     return;
   }
 
-  // Sort visible: selected default markets on top
+  // Sort visible: default markets on top, grouped by selection state
   const selectedDefaults = [];
+  const unselectedDefaults = [];
   const others = [];
   for (const m of visible) {
-    if (isDefaultStatistikaMarket(m.marketName) && isMarketSelected(m)) {
-      selectedDefaults.push(m);
+    if (isDefaultStatistikaMarket(m.marketName)) {
+      if (isMarketSelected(m)) {
+        selectedDefaults.push(m);
+      } else {
+        unselectedDefaults.push(m);
+      }
     } else {
       others.push(m);
     }
   }
-  const sortedVisible = [...selectedDefaults, ...others];
+  const sortedVisible = [...selectedDefaults, ...unselectedDefaults, ...others];
 
   elements.marketsList.replaceChildren(...sortedVisible.map(createMarketCard));
   if (preserveScroll) {
@@ -641,6 +646,16 @@ function isStatistikaMarket(marketName) {
       ? TENNIS_STATISTIKA_KEYWORDS
       : STATISTIKA_KEYWORDS;
   return keywords.some((kw) => norm.includes(normalizeSearchText(kw)));
+}
+
+function isSplitStatistikaMarket(market, isStatistika) {
+  if (!isStatistika) return false;
+  const hasViseManje = market.odds.some((odd) => {
+    const norm = normalizeSearchText(odd.name);
+    return norm.includes("manje") || norm.includes("under") || norm.includes("ispod") || norm.includes("less") ||
+           norm.includes("vise") || norm.includes("over") || norm.includes("iznad") || norm.includes("preko") || norm.includes("more");
+  });
+  return market.odds.length >= 3 || !hasViseManje;
 }
 
 /** Initialize tab-switching click listeners. Call once on startup. */
@@ -912,12 +927,13 @@ function isDefaultStatistikaMarket(marketName) {
     : currentSportId === 2
       ? TENNIS_DEFAULT_MARKET_BASES
       : DEFAULT_MARKET_BASES;
-  const specNorm = normalizeSearchText(marketName);
+  const cleanStr = (s) => normalizeSearchText(s).replace(/[^a-z0-9]/g, "");
+  const specNorm = cleanStr(marketName);
   return bases.some((base) => {
     if (base.includes("{home}") && !home) return false;
     if (base.includes("{away}") && !away) return false;
     const resolved = base.replace("{home}", home).replace("{away}", away);
-    return normalizeSearchText(resolved) === specNorm;
+    return cleanStr(resolved) === specNorm;
   });
 }
 
@@ -927,7 +943,7 @@ function isMarketSelected(market) {
   
   const isCombo = isMarketCombo(market);
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
-  const isSplitStatistika = isStatistika && market.odds.length >= 3;
+  const isSplitStatistika = isSplitStatistikaMarket(market, isStatistika);
   
   if (isStatistika && !isSplitStatistika) {
     const type = "ou";
@@ -1293,7 +1309,7 @@ function createMarketCard(market) {
   const oddsGrid = document.createElement("div");
   const isCombo = isMarketCombo(market);
   const isStatistika = !isCombo && isStatistikaMarket(market.marketName);
-  const isSplitStatistika = isStatistika && market.odds.length >= 3;
+  const isSplitStatistika = isSplitStatistikaMarket(market, isStatistika);
   const rewrittenEventName = getEventName();
   const finalMarketName = getRewrittenString(market.marketName, currentEvent, rewrittenEventName);
 
@@ -1301,7 +1317,7 @@ function createMarketCard(market) {
   oddsGrid.className = "odds-grid";
 
   if (isCombo) {
-    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", finalMarketName, market.uuid), odd }));
+    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", finalMarketName, market.uuid, false, true), odd }));
     oddsGrid.append(...comboEntries.map((e) => e.wrapper));
 
     const titleArea = document.createElement("div");
@@ -1356,7 +1372,7 @@ function createMarketCard(market) {
     return card;
   }
 
-  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? finalMarketName : null, market.uuid, isStatistika && !isSplitStatistika)));
+  oddsGrid.append(...market.odds.map((odd) => createOddButton(odd, "", isSplitStatistika ? finalMarketName : null, market.uuid, isStatistika && !isSplitStatistika, isCombo)));
 
   if (isStatistika && !isSplitStatistika) {
     const titleArea = document.createElement("div");
@@ -1410,8 +1426,8 @@ function createMarketCard(market) {
   return card;
 }
 
-function createOddButton(odd, contextText = "", comboMarketName = null, marketUuid = null, isOu = false) {
-  const isCombo = comboMarketName !== null;
+function createOddButton(odd, contextText = "", comboMarketName = null, marketUuid = null, isOu = false, isCombo = false) {
+  const hasAddBtn = comboMarketName !== null;
   const button = document.createElement("button");
   const label = document.createElement("span");
   const price = document.createElement("span");
@@ -1496,7 +1512,7 @@ function createOddButton(odd, contextText = "", comboMarketName = null, marketUu
   price.textContent = Number.isFinite(odd.price) ? (odd.price * m).toFixed(2) : "-";
   button.append(label, price);
 
-  if (!isCombo) return button;
+  if (!hasAddBtn) return button;
 
   // Mark the label so the card title editor knows to sync it
   if (odd.name === comboMarketName) label.dataset.usesMarketName = "true";
@@ -1779,12 +1795,13 @@ export function addDefaultStatistikaMarkets() {
 
     const resolved = base.replace("{home}", home).replace("{away}", away);
     const specNorm = normalizeSearchText(resolved);
+    const cleanResolved = specNorm.replace(/[^a-z0-9]/g, "");
 
-    const matches = currentMarkets.filter((m) => normalizeSearchText(m.marketName) === specNorm);
+    const matches = currentMarkets.filter((m) => normalizeSearchText(m.marketName).replace(/[^a-z0-9]/g, "") === cleanResolved);
     if (!matches.length) continue;
 
     const isCombo = isMarketCombo(matches[0]);
-    const isSplit = matches[0].odds.length >= 3;
+    const isSplit = isSplitStatistikaMarket(matches[0], !isCombo);
 
     if (isCombo || isSplit) {
       for (const market of matches) {
