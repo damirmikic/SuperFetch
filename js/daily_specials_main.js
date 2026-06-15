@@ -11,7 +11,7 @@ import {
   formatPeriodLabel,
   getTeamOptions,
   isEventInPeriod
-} from "./daily_specials_model.js?v=20260615-2";
+} from "./daily_specials_model.js?v=20260615-3";
 
 const elements = {
   competitionList: document.querySelector("#competition-list"),
@@ -267,18 +267,27 @@ function renderSpecialControls() {
 }
 
 function renderPlayerSelectors() {
+  const previousEventId = elements.playerEventSelect.value;
+  const previousPlayer = elements.playerSelect.value;
+  const previousTeam = elements.playerTeamSelect.value;
   const playerOptions = collectPlayerOptions(matchModels);
   elements.playerEventSelect.replaceChildren(...playerOptions.map((item) => {
     const model = matchModels.find((match) => String(match.event.eventId) === String(item.eventId));
     return new Option(model ? formatEventNameWithAliases(model.event) : item.eventName, String(item.eventId));
   }));
   elements.playerEventSelect.disabled = !playerOptions.length;
+  if (previousEventId && playerOptions.some((item) => String(item.eventId) === String(previousEventId))) {
+    elements.playerEventSelect.value = previousEventId;
+  }
 
   const selectedEventId = elements.playerEventSelect.value || playerOptions[0]?.eventId;
   const selected = playerOptions.find((item) => String(item.eventId) === String(selectedEventId));
   const players = selected?.players || [];
   elements.playerSelect.replaceChildren(...players.map((name) => new Option(formatPlayerName(name), name)));
   elements.playerSelect.disabled = !players.length;
+  if (previousPlayer && players.includes(previousPlayer)) {
+    elements.playerSelect.value = previousPlayer;
+  }
 
   const model = matchModels.find((item) => String(item.event.eventId) === String(selectedEventId));
   const teamOptions = [];
@@ -286,6 +295,9 @@ function renderPlayerSelectors() {
   if (model?.event.awayTeam) teamOptions.push(new Option(getDisplayTeam(model.event, "away"), "away"));
   elements.playerTeamSelect.replaceChildren(...teamOptions);
   elements.playerTeamSelect.disabled = !teamOptions.length;
+  if (previousTeam && teamOptions.some((option) => option.value === previousTeam)) {
+    elements.playerTeamSelect.value = previousTeam;
+  }
   elements.addPlayerSpecial.disabled = !model || !players.length || !teamOptions.length;
 }
 
