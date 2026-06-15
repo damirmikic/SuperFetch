@@ -1,4 +1,5 @@
 import { fetchMarketsForEvent, fetchPrematchEventsForCompetition, fetchSoccerCompetitions } from "./api.js";
+import { getWorldCupTeamAlias } from "./world_cup_team_names.js";
 import {
   buildDailyCsv,
   buildDailyTotals,
@@ -11,7 +12,7 @@ import {
   formatPeriodLabel,
   getTeamOptions,
   isEventInPeriod
-} from "./daily_specials_model.js?v=20260615-3";
+} from "./daily_specials_model.js?v=20260615-4";
 
 const elements = {
   competitionList: document.querySelector("#competition-list"),
@@ -426,7 +427,7 @@ function createTeamAliasInput(event, side, fallback) {
   const input = document.createElement("input");
   input.className = "daily-team-input";
   input.type = "text";
-  input.value = getTeamAlias(event.eventId, side) || fallback;
+  input.value = getDisplayTeam(event, side);
   input.placeholder = fallback;
   input.dataset.eventId = String(event.eventId);
   input.dataset.side = side;
@@ -466,7 +467,7 @@ function setTeamAlias(eventId, side, value, fallback) {
 
 function getDisplayTeam(event, side) {
   const fallback = side === "home" ? event.homeTeam : event.awayTeam;
-  return getTeamAlias(event.eventId, side) || fallback;
+  return getTeamAlias(event.eventId, side) || getWorldCupTeamAlias(fallback) || fallback;
 }
 
 function formatEventNameWithAliases(event) {
