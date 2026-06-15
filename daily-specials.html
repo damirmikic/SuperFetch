@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPECIJALI - Dnevni Specijali</title>
+    <meta name="description" content="Generator dnevnih specijala za vise fudbalskih meceva.">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-root">
+      <header class="topbar" aria-labelledby="app-title">
+        <div class="topbar-brand">
+          <span class="brand-icon" aria-hidden="true">DS</span>
+          <div>
+            <span class="brand-tag">csv generator specijala</span>
+            <h1 id="app-title" class="brand-name">SPECIJALI</h1>
+          </div>
+        </div>
+        <nav class="sports-nav">
+          <a href="index.html" class="sport-link">Fudbal</a>
+          <a href="basketball.html" class="sport-link">Kosarka</a>
+          <a href="tennis.html" class="sport-link">Tenis</a>
+          <a href="daily-specials.html" class="sport-link is-active">Dnevni Specijali</a>
+        </nav>
+        <div class="topbar-controls">
+          <div id="status" class="status-pill" role="status">Starting...</div>
+          <button id="refresh-button" class="icon-btn" type="button" title="Refresh" aria-label="Refresh">R</button>
+        </div>
+      </header>
+
+      <main class="workspace daily-workspace">
+        <aside class="sidebar daily-sidebar" aria-labelledby="daily-events-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Prematch</span>
+              <h2 id="daily-events-title" class="panel-title">Mecevi</h2>
+            </div>
+            <div id="events-status" class="status-pill" role="status">Pick a competition</div>
+          </div>
+
+          <div class="daily-controls">
+            <div class="field">
+              <span class="field-label">Lige</span>
+              <div id="competition-list" class="daily-competition-list">
+                <div class="empty-state">
+                  <span class="empty-icon">--</span>
+                  <span>Loading competitions...</span>
+                </div>
+              </div>
+            </div>
+            <div class="daily-time-grid">
+              <label class="field">
+                <span class="field-label">Datum od</span>
+                <input id="daily-date-from" class="daily-input" type="date">
+              </label>
+              <label class="field">
+                <span class="field-label">Datum do</span>
+                <input id="daily-date-to" class="daily-input" type="date">
+              </label>
+            </div>
+            <div class="daily-time-grid">
+              <label class="field">
+                <span class="field-label">Od</span>
+                <input id="daily-from" class="daily-input" type="time" value="18:00">
+              </label>
+              <label class="field">
+                <span class="field-label">Do</span>
+                <input id="daily-to" class="daily-input" type="time" value="06:00">
+              </label>
+            </div>
+            <button id="load-events-button" class="action-btn action-btn--primary" type="button">Ucitaj meceve</button>
+          </div>
+
+          <div id="daily-events-list" class="daily-events-list">
+            <div class="empty-state">
+              <span class="empty-icon">--</span>
+              <span>Izaberi takmicenje i period</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="markets-panel daily-panel" aria-labelledby="daily-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Builder</span>
+              <h2 id="daily-title" class="panel-title">Dnevni Specijali</h2>
+            </div>
+            <div class="panel-head-right">
+              <div id="daily-range-label" class="datetime-display"></div>
+              <div id="markets-status" class="status-pill" role="status">No matches selected</div>
+            </div>
+          </div>
+
+          <div class="daily-grid">
+            <section class="daily-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Ukupno</span>
+                  <h3 class="panel-title">Ukupno u danu</h3>
+                </div>
+                <button id="recalculate-button" class="action-btn action-btn--secondary" type="button">Izracunaj</button>
+              </div>
+              <div id="daily-totals" class="daily-totals"></div>
+            </section>
+
+            <section class="daily-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Igrac vs Tim</span>
+                  <h3 class="panel-title">Poredjenje golova</h3>
+                </div>
+                <button id="add-player-special" class="action-btn action-btn--secondary" type="button" disabled>Dodaj</button>
+              </div>
+              <div class="daily-form-grid">
+                <label class="field">
+                  <span class="field-label">Mec igraca</span>
+                  <select id="player-event-select" disabled></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Igrac</span>
+                  <select id="player-select" disabled></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Tim</span>
+                  <select id="player-team-select" disabled></select>
+                </label>
+              </div>
+              <div id="player-specials-list" class="daily-added-list"></div>
+            </section>
+
+            <section class="daily-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Dueli Timova</span>
+                  <h3 class="panel-title">Grupa protiv grupe</h3>
+                </div>
+                <button id="add-team-duel" class="action-btn action-btn--secondary" type="button" disabled>Dodaj</button>
+              </div>
+              <div class="daily-duel-grid">
+                <label class="field">
+                  <span class="field-label">Leva grupa</span>
+                  <select id="duel-left-select" class="daily-multi" multiple disabled></select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Desna grupa</span>
+                  <select id="duel-right-select" class="daily-multi" multiple disabled></select>
+                </label>
+              </div>
+              <div id="team-duels-list" class="daily-added-list"></div>
+            </section>
+
+            <section class="daily-section daily-csv-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Output</span>
+                  <h3 class="panel-title">CSV</h3>
+                </div>
+                <div class="daily-csv-actions">
+                  <button id="download-csv-button" class="action-btn action-btn--primary" type="button" disabled>Download</button>
+                  <button id="clear-csv-button" class="action-btn action-btn--danger" type="button" disabled>Ocisti dodatke</button>
+                </div>
+              </div>
+              <textarea id="csv-output" class="csv-output daily-csv-output" spellcheck="false" placeholder="CSV output will appear here..."></textarea>
+              <div id="csv-status" class="csv-status-text" role="status">No CSV rows generated</div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./js/daily_specials_main.js"></script>
+  </body>
+</html>
