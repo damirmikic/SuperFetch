@@ -239,16 +239,17 @@ function buildDailyGoalsRow(matchModels, period, multiplier = DEFAULT_OU_MARGIN)
 }
 
 function buildDailyStatRow(matchModels, period, config, multiplier = DEFAULT_OU_MARGIN) {
-  const dists = [];
+  let lambda = 0;
+  let count = 0;
   for (const model of matchModels) {
     const stat = inferStatDistribution(model.markets, model.event, config);
-    if (stat) dists.push(stat.dist);
+    if (stat) { lambda += stat.mean; count++; }
   }
-  if (!dists.length) {
+  if (!count) {
     return { ok: false, label: config.label, reason: "Nema odgovarajucih O/U marketa." };
   }
-  const combined = dists.reduce((acc, dist) => acc ? convolve(acc, dist, MAX_STATS) : dist, null);
-  return buildOuResult(config.label, combined, period, multiplier, dists.length, matchModels.length);
+  const dist = poissonPmf(lambda, MAX_STATS);
+  return buildOuResult(config.label, dist, period, multiplier, count, matchModels.length);
 }
 
 function buildOuResult(label, dist, period, multiplier, available, total) {
@@ -278,7 +279,7 @@ function inferStatDistribution(markets, event, config) {
     if (!Number.isFinite(underPrice) || underPrice < 1.01) return null;
     const pNoRed = clamp(DEFAULT_OU_MARGIN / underPrice, 0.01, 0.99);
     return {
-      dist: [pNoRed, 1 - pNoRed],
+      mean: 1 - pNoRed,
       market: candidate.market.marketName,
       line: candidate.line
     };
@@ -288,7 +289,7 @@ function inferStatDistribution(markets, event, config) {
   if (!probs) return null;
   const mean = inferPoissonMeanFromUnder(candidate.line, probs[0]);
   return {
-    dist: poissonPmf(mean, Math.max(MAX_STATS, Math.ceil(mean * 6))),
+    mean,
     market: candidate.market.marketName,
     line: candidate.line
   };
@@ -320,7 +321,7 @@ function findTotalOuMarket(markets, event, config) {
     const score = scoreStatCandidate(norm);
     candidates.push({ market, ...ou, score });
   }
-  candidates.sort((a, b) => b.score - a.score || Math.abs(a.line - 10.5) - Math.abs(b.line - 10.5));
+  candidates.sort((a, b) => b.score - a.score || oddsAsymmetry(a) - oddsAsymmetry(b));
   return candidates[0] || null;
 }
 
@@ -347,6 +348,13 @@ function findRedCardsOverUnder(market) {
 
   if (!under || !Number.isFinite(Number(under.price))) return null;
   return { under, over, line };
+}
+
+function oddsAsymmetry(candidate) {
+  const u = Number(candidate.under?.price);
+  const o = Number(candidate.over?.price);
+  if (!Number.isFinite(u) || !Number.isFinite(o) || u <= 0 || o <= 0) return 999;
+  return Math.abs(1 / u - 1 / o);
 }
 
 function scoreStatCandidate(norm) {
