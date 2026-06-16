@@ -392,9 +392,10 @@ function buildPlayerGoalModel(markets, playerName) {
     const probs = normalizeImplied([yes.price, no.price]);
     if (probs) pGoal = probs[0];
   }
-  const pClamped = clamp(pGoal, 0.01, 0.92);
+  const pClamped = clamp(pGoal, 0.01, 0.99);
+  const lambdaPlayer = -Math.log(Math.max(1 - pClamped, 0.001));
   return {
-    dist: [1 - pClamped, pClamped],
+    dist: poissonPmf(lambdaPlayer, MAX_GOALS),
     goalOdd: probabilityToOdds(pClamped, DEFAULT_OUTRIGHT_MARGIN),
     source: market.marketName
   };
