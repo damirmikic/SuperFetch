@@ -12,7 +12,7 @@ import {
   formatPeriodLabel,
   getTeamOptions,
   isEventInPeriod
-} from "./daily_specials_model.js?v=20260615-4";
+} from "./daily_specials_model.js?v=20260615-8";
 
 const elements = {
   competitionList: document.querySelector("#competition-list"),
@@ -38,6 +38,7 @@ const elements = {
   duelRightSelect: document.querySelector("#duel-right-select"),
   addTeamDuel: document.querySelector("#add-team-duel"),
   teamDuelsList: document.querySelector("#team-duels-list"),
+  playerPreview: document.querySelector("#player-preview"),
   csvOutput: document.querySelector("#csv-output"),
   csvStatus: document.querySelector("#csv-status"),
   downloadCsvButton: document.querySelector("#download-csv-button"),
@@ -74,6 +75,8 @@ function wireEvents() {
   elements.loadEventsButton.addEventListener("click", loadEvents);
   elements.recalculateButton.addEventListener("click", recalculateSelected);
   elements.playerEventSelect.addEventListener("change", renderPlayerSelectors);
+  elements.playerSelect.addEventListener("change", renderPlayerPreview);
+  elements.playerTeamSelect.addEventListener("change", renderPlayerPreview);
   elements.addPlayerSpecial.addEventListener("click", addPlayerSpecial);
   elements.addTeamDuel.addEventListener("click", addTeamDuel);
   elements.clearCsvButton.addEventListener("click", () => {
@@ -300,6 +303,48 @@ function renderPlayerSelectors() {
     elements.playerTeamSelect.value = previousTeam;
   }
   elements.addPlayerSpecial.disabled = !model || !players.length || !teamOptions.length;
+  renderPlayerPreview();
+}
+
+function renderPlayerPreview() {
+  if (!elements.playerPreview) return;
+  const eventId = elements.playerEventSelect.value;
+  const playerName = elements.playerSelect.value;
+  const teamSide = elements.playerTeamSelect.value;
+  const matchModel = matchModels.find((item) => String(item.event.eventId) === String(eventId));
+  if (!matchModel || !playerName || !teamSide) {
+    elements.playerPreview.replaceChildren();
+    return;
+  }
+  const row = buildPlayerVsTeamRow({
+    matchModel: withAliasedEvent(matchModel),
+    playerName,
+    teamSide,
+    period: getPeriod()
+  });
+  if (!row.ok) {
+    const msg = document.createElement("div");
+    msg.className = "daily-preview-error";
+    msg.textContent = row.reason;
+    elements.playerPreview.replaceChildren(msg);
+    return;
+  }
+  const preview = document.createElement("div");
+  preview.className = "daily-preview-odds";
+  const playerLabel = document.createElement("span");
+  playerLabel.className = "daily-preview-label";
+  playerLabel.textContent = "Igrac daje gol";
+  const playerValue = document.createElement("span");
+  playerValue.className = "daily-preview-value";
+  playerValue.textContent = row.playerGoalOdd || "-";
+  const teamLabel = document.createElement("span");
+  teamLabel.className = "daily-preview-label";
+  teamLabel.textContent = "Tim daje gol";
+  const teamValue = document.createElement("span");
+  teamValue.className = "daily-preview-value";
+  teamValue.textContent = row.teamGoalOdd || "-";
+  preview.append(playerLabel, playerValue, teamLabel, teamValue);
+  elements.playerPreview.replaceChildren(preview);
 }
 
 function renderDuelSelectors() {
@@ -420,6 +465,7 @@ function resetCalculatedState() {
   renderTotals([]);
   renderAddedRows();
   renderSpecialControls();
+  elements.playerPreview?.replaceChildren();
   renderCsv();
 }
 
@@ -494,9 +540,14 @@ function editableCell(group, index, field, value) {
 
 function createAddedRowEditor(row, group, index) {
   const wrapper = document.createElement("div");
+  const goalOdds = group === "player"
+    ? `<label>Igrac gol <input class="daily-odds-edit" data-group="${group}" data-index="${index}" data-field="playerGoalOdd" value="${escapeHtml(row.playerGoalOdd || "")}"></label>
+       <label>Tim gol <input class="daily-odds-edit" data-group="${group}" data-index="${index}" data-field="teamGoalOdd" value="${escapeHtml(row.teamGoalOdd || "")}"></label>`
+    : "";
   wrapper.className = "daily-added-editor";
   wrapper.innerHTML = `
     <span>${escapeHtml(row.host)} vs ${escapeHtml(row.guest)}</span>
+    ${goalOdds}
     <label>1 ${editableCell(group, index, "one", row.one)}</label>
     <label>X ${editableCell(group, index, "draw", row.draw)}</label>
     <label>2 ${editableCell(group, index, "two", row.two)}</label>

@@ -661,6 +661,43 @@ select:disabled {
   min-height: 132px;
 }
 
+.daily-player-preview {
+  min-height: 0;
+}
+
+.daily-preview-odds {
+  display: flex;
+  align-items: center;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.daily-preview-label {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.daily-preview-value {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.daily-preview-error {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
 .daily-added-list {
   display: grid;
   gap: 8px;

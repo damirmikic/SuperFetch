@@ -63,6 +63,7 @@ export function collectPlayerOptions(matchModels) {
 export function buildPlayerVsTeamRow({ matchModel, playerName, teamSide, period, multiplier = DEFAULT_OUTRIGHT_MARGIN, ouMultiplier = DEFAULT_OU_MARGIN }) {
   const teamDist = teamSide === "home" ? matchModel.homeGoalDist : matchModel.awayGoalDist;
   const teamName = teamSide === "home" ? matchModel.event.homeTeam : matchModel.event.awayTeam;
+  const teamLambda = teamSide === "home" ? matchModel.xg?.lambdaHome : matchModel.xg?.lambdaAway;
   const playerModel = buildPlayerGoalModel(matchModel.markets, playerName);
 
   if (!teamDist || !playerModel.dist) {
@@ -97,6 +98,8 @@ export function buildPlayerVsTeamRow({ matchModel, playerName, teamSide, period,
     line: formatLine(line),
     under: formatPrice(ou.under),
     over: formatPrice(ou.over),
+    playerGoalOdd: formatPrice(playerModel.goalOdd),
+    teamGoalOdd: formatPrice(probabilityToOdds(atLeastOneProbability(teamLambda), DEFAULT_OUTRIGHT_MARGIN)),
     note: playerModel.source
   };
 }
@@ -356,32 +359,44 @@ function scoreStatCandidate(norm) {
 
 function buildPlayerGoalModel(markets, playerName) {
   const playerNorm = normalizeText(playerName);
-  let best = null;
+  const candidates = [];
+
   for (const market of markets) {
     const marketNorm = normalizeText(market.marketName);
+    if (!marketNorm.includes("gol") && !marketNorm.includes("postiz") && !marketNorm.includes("score")) continue;
     const fullNorm = normalizeText(`${market.marketName} ${(market.odds || []).map((o) => `${o.name} ${o.playerName || ""}`).join(" ")}`);
     if (!fullNorm.includes(playerNorm)) continue;
-    if (!marketNorm.includes("gol") && !marketNorm.includes("postiz") && !marketNorm.includes("score")) continue;
 
-    const yes = (market.odds || []).find((odd) => isYesOdd(odd.name) || normalizeText(odd.name).includes(playerNorm));
-    const no = (market.odds || []).find((odd) => isNoOdd(odd.name));
+    const yes = (market.odds || []).find((odd) => {
+      const normOddName = normalizeText(odd.name);
+      return isYesOdd(odd.name) ||
+        normOddName.includes(playerNorm) ||
+        normalizeText(odd.playerName || "") === playerNorm ||
+        (normOddName.length > 3 && playerNorm.startsWith(normOddName));
+    });
     if (!yes) continue;
-    let pGoal = 1 / yes.price;
-    if (no) {
-      const probs = normalizeImplied([yes.price, no.price]);
-      if (probs) pGoal = probs[0];
-    }
-    best = {
-      pGoal: clamp(pGoal, 0.01, 0.92),
-      source: market.marketName
-    };
-    break;
+    const no = (market.odds || []).find((odd) => isNoOdd(odd.name));
+
+    let score = 0;
+    if (marketNorm.includes("igrac") || marketNorm.includes("player")) score += 10;
+    if (marketNorm.includes("postiz")) score += 5;
+    candidates.push({ market, yes, no, score });
   }
 
-  if (!best) return { dist: null, source: "" };
+  if (!candidates.length) return { dist: null, source: "" };
+  candidates.sort((a, b) => b.score - a.score);
+  const { market, yes, no } = candidates[0];
+
+  let pGoal = 1 / yes.price;
+  if (no) {
+    const probs = normalizeImplied([yes.price, no.price]);
+    if (probs) pGoal = probs[0];
+  }
+  const pClamped = clamp(pGoal, 0.01, 0.92);
   return {
-    dist: [1 - best.pGoal, best.pGoal],
-    source: best.source
+    dist: [1 - pClamped, pClamped],
+    goalOdd: probabilityToOdds(pClamped, DEFAULT_OUTRIGHT_MARGIN),
+    source: market.marketName
   };
 }
 
@@ -460,6 +475,11 @@ function overUnderOdds(dist, line, multiplier) {
 function probabilityToOdds(probability, multiplier = 1) {
   if (!Number.isFinite(probability) || probability <= 0.0001) return 999;
   return Math.min(999, (1 / probability) * multiplier);
+}
+
+function atLeastOneProbability(lambda) {
+  if (!Number.isFinite(lambda) || lambda <= 0) return 0;
+  return 1 - Math.exp(-lambda);
 }
 
 function poissonPmf(lambda, max) {
