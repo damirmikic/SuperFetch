@@ -1,4 +1,4 @@
-import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString } from "./csv.js";
+import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString, translateComboName } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 import { calculateSoccerXg, calculateWorldCupPeriodOffer, calculateWorldCupSpecialMarkets } from "./xg.js?v=20260614-6";
 
@@ -1639,32 +1639,48 @@ function createMarketCard(market) {
   oddsGrid.className = "odds-grid";
 
   if (isCombo) {
-    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", finalMarketName, market.uuid, false, true), odd }));
+    const translatedMarketName = translateComboName(finalMarketName);
+    const comboEntries = market.odds.map((odd) => ({ wrapper: createOddButton(odd, "", translatedMarketName, market.uuid, false, true), odd }));
     oddsGrid.append(...comboEntries.map((e) => e.wrapper));
 
     const titleArea = document.createElement("div");
     const title = document.createElement("h3");
-    const resetBtn = document.createElement("button");
+    const originalNameBox = document.createElement("div");
     const originalNameEl = document.createElement("p");
+    const useTranslatedLabel = document.createElement("label");
+    const useTranslatedCheckbox = document.createElement("input");
 
     titleArea.className = "market-title-area";
     title.className = "market-title market-title--editable";
     title.contentEditable = "true";
     title.spellcheck = false;
-    title.textContent = finalMarketName;
-    resetBtn.className = "market-reset-btn";
-    resetBtn.type = "button";
-    resetBtn.title = "Vrati originalni naziv";
-    resetBtn.textContent = "↺";
-    resetBtn.hidden = true;
+    title.textContent = translatedMarketName;
+    
+    originalNameBox.className = "market-original-box";
+    originalNameBox.style.padding = "8px";
+    originalNameBox.style.marginBottom = "10px";
+    originalNameBox.style.backgroundColor = "var(--bg-card, #f5f5f5)";
+    originalNameBox.style.border = "1px solid var(--border-color, #ddd)";
+    originalNameBox.style.borderRadius = "4px";
+    originalNameBox.style.fontSize = "0.85em";
+    originalNameBox.style.color = "var(--text-muted, #666)";
+
     originalNameEl.className = "market-original-name";
-    originalNameEl.textContent = finalMarketName;
-    originalNameEl.hidden = true;
+    originalNameEl.textContent = `Original: ${finalMarketName}`;
+    originalNameEl.style.margin = "0 0 5px 0";
+
+    useTranslatedCheckbox.type = "checkbox";
+    useTranslatedCheckbox.checked = true;
+    useTranslatedCheckbox.className = "combo-translate-checkbox";
+    useTranslatedLabel.style.cursor = "pointer";
+    useTranslatedLabel.style.display = "flex";
+    useTranslatedLabel.style.alignItems = "center";
+    useTranslatedLabel.style.gap = "5px";
+    useTranslatedLabel.append(useTranslatedCheckbox, " Skrati i prevedi naziv za CSV");
+
+    originalNameBox.append(originalNameEl, useTranslatedLabel);
 
     const applyEdit = (newName) => {
-      const changed = newName !== finalMarketName;
-      resetBtn.hidden = !changed;
-      originalNameEl.hidden = !changed;
       for (const { wrapper, odd } of comboEntries) {
         const addBtn = wrapper.querySelector(".add-odd-button");
         if (!addBtn) continue;
@@ -1685,12 +1701,20 @@ function createMarketCard(market) {
       }
     };
 
-    title.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); title.blur(); } });
-    title.addEventListener("input", () => { applyEdit(title.textContent.trim() || finalMarketName); });
-    resetBtn.addEventListener("click", () => { title.textContent = finalMarketName; applyEdit(finalMarketName); });
+    useTranslatedCheckbox.addEventListener("change", () => {
+      const newName = useTranslatedCheckbox.checked ? translateComboName(finalMarketName) : finalMarketName;
+      title.textContent = newName;
+      applyEdit(newName);
+    });
 
-    titleArea.append(title, resetBtn);
-    card.append(titleArea, originalNameEl, oddsGrid);
+    title.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); title.blur(); } });
+    title.addEventListener("input", () => { 
+      // If user manually edits, we might want to uncheck or just keep it
+      applyEdit(title.textContent.trim() || translatedMarketName); 
+    });
+
+    titleArea.append(title);
+    card.append(titleArea, originalNameBox, oddsGrid);
     return card;
   }
 

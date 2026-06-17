@@ -582,6 +582,36 @@ export function extractLineOrNull(text) {
   return null;
 }
 
+export function translateComboName(text) {
+  if (!text) return text;
+  
+  let translated = String(text);
+  
+  // 1. Fix "Lastname, Firstname" format so it becomes "Firstname Lastname" 
+  // and doesn't get split by the comma replacement below.
+  translated = translated.replace(/\b([\p{Lu}][\p{L}'.-]+(?:\s+[\p{Lu}][\p{L}'.-]+)?),\s*([\p{Lu}][\p{L}'.-]+(?:\s+[\p{Lu}][\p{L}'.-]+)?)\b/gu, "$2 $1");
+  
+  // Replace delimiters with " i "
+  translated = translated.replace(/\s*[;,]\s*/g, " i ");
+  
+  // Handle "vise od / over" -> "X+"
+  translated = translated.replace(/(?:više od|vise od|vise|više|over|iznad|preko)\s*(\d+(?:[.,]\d+)?)/gi, (match, valStr) => {
+    const val = parseFloat(valStr.replace(",", "."));
+    return `${Math.floor(val) + 1}+`;
+  });
+  
+  // Handle "manje od / under" -> "0-X"
+  translated = translated.replace(/(?:manje od|manje|under|ispod)\s*(\d+(?:[.,]\d+)?)/gi, (match, valStr) => {
+    const val = parseFloat(valStr.replace(",", "."));
+    return `0-${Math.floor(val)}`;
+  });
+  
+  // Optionally clean up multiple spaces
+  translated = translated.replace(/\s{2,}/g, " ").trim();
+  
+  return translated;
+}
+
 function formatEventDateTime(value) {
   const date = value ? new Date(value.replace(" ", "T") + "Z") : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
