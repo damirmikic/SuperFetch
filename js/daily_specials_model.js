@@ -10,7 +10,7 @@ const DEFAULT_OU_MARGIN = 0.92;
 const DAILY_TOTALS = [
   { key: "goals", label: "ukupno golova", kind: "goals" },
   { key: "corners", label: "ukupno kornera", kind: "stat", keywords: ["korner", "corner"] },
-  { key: "cards", label: "ukupno kartona", kind: "stat", keywords: ["karton", "card"], reject: ["crveni", "red"] },
+  { key: "cards", label: "ukupno kartona", kind: "stat", keywords: ["karton", "card"], reject: ["crveni", "red", "zuti", "žuti", "yellow", "poen", "bod", "booking"] },
   { key: "penalties", label: "ukupno penala", kind: "stat", keywords: ["penal", "penalty"] },
   { key: "redCards", label: "ukupno crvenih kartona", kind: "stat", exactNames: ["ukupno crvenih kartona"], keywords: ["crveni karton", "red card"] },
   { key: "fouls", label: "ukupno faulova", kind: "stat", keywords: ["faul", "foul"] },
@@ -248,7 +248,8 @@ function buildDailyStatRow(matchModels, period, config, multiplier = DEFAULT_OU_
   if (!count) {
     return { ok: false, label: config.label, reason: "Nema odgovarajucih O/U marketa." };
   }
-  const dist = poissonPmf(lambda, MAX_STATS);
+  const maxVal = Math.max(MAX_STATS, Math.ceil(lambda * 1.5) + 50);
+  const dist = poissonPmf(lambda, maxVal);
   return buildOuResult(config.label, dist, period, multiplier, count, matchModels.length);
 }
 
@@ -492,8 +493,8 @@ function atLeastOneProbability(lambda) {
 }
 
 function poissonPmf(lambda, max) {
-  const safeLambda = clamp(lambda, 0.001, 120);
-  const limit = Math.max(1, Math.min(max, 220));
+  const safeLambda = clamp(lambda, 0.001, 700);
+  const limit = Math.max(1, Math.min(max, 1500));
   const pmf = [Math.exp(-safeLambda)];
   for (let i = 1; i <= limit; i += 1) {
     pmf[i] = pmf[i - 1] * safeLambda / i;
@@ -522,7 +523,7 @@ function inferPoissonMeanFromUnder(line, pUnder) {
   const target = clamp(pUnder, 0.01, 0.99);
   const threshold = Math.floor(line);
   let low = 0.01;
-  let high = 120;
+  let high = Math.max(120, line * 2 + 50);
   for (let i = 0; i < 80; i += 1) {
     const mid = (low + high) / 2;
     const cdf = poissonCdf(threshold, mid);
