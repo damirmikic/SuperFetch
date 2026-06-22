@@ -329,6 +329,12 @@ select:disabled {
   opacity: 0.6;
 }
 
+option,
+optgroup {
+  color: #111;
+  background: #fff;
+}
+
 #competition-select {
   border-color: var(--line-bright);
   box-shadow: 0 0 0 1px var(--line-bright);

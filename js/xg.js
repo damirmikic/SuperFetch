@@ -160,6 +160,26 @@ export function calculateWorldCupSpecialMarkets(xgResult, event) {
     odds: [{ name: "Da", price: probabilityToOdds(atLeastOneProbability(q4.awayLambda)) }]
   });
 
+  const pHomeWinsNone = periods.reduce((prob, period) => prob * (1 - periodWinProbability(period.homeLambda, period.awayLambda, "home")), 1);
+  const pAwayWinsNone = periods.reduce((prob, period) => prob * (1 - periodWinProbability(period.homeLambda, period.awayLambda, "away")), 1);
+
+  markets.push({
+    marketName: `${homeTeam} ne pobeđuje ni jednu četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(pHomeWinsNone) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} ne pobeđuje ni jednu četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(pAwayWinsNone) }]
+  });
+  markets.push({
+    marketName: `${homeTeam} pobeđuje bar jednu četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(1 - pHomeWinsNone) }]
+  });
+  markets.push({
+    marketName: `${awayTeam} pobeđuje bar jednu četvrtinu`,
+    odds: [{ name: "Da", price: probabilityToOdds(1 - pAwayWinsNone) }]
+  });
+
   return markets;
 }
 

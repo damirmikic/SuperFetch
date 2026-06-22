@@ -12,7 +12,7 @@ const DAILY_TOTALS = [
   { key: "corners", label: "ukupno kornera", kind: "stat", keywords: ["korner", "corner"] },
   { key: "cards", label: "ukupno kartona", kind: "stat", keywords: ["karton", "card"], reject: ["crveni", "red", "zuti", "žuti", "yellow", "poen", "bod", "booking"] },
   { key: "penalties", label: "ukupno penala", kind: "stat", keywords: ["penal", "penalty"] },
-  { key: "redCards", label: "ukupno crvenih kartona", kind: "stat", exactNames: ["ukupno crvenih kartona"], keywords: ["crveni karton", "red card"] },
+  { key: "redCards", label: "ukupno crvenih kartona", kind: "stat", exactNames: ["ukupno crvenih kartona"], keywords: ["crveni karton", "red card"], fixedLine: 0.5 },
   { key: "fouls", label: "ukupno faulova", kind: "stat", keywords: ["faul", "foul"] },
   { key: "offsides", label: "ukupno ofsajda", kind: "stat", keywords: ["ofsajd", "offside"] }
 ];
@@ -250,12 +250,12 @@ function buildDailyStatRow(matchModels, period, config, multiplier = DEFAULT_OU_
   }
   const maxVal = Math.max(MAX_STATS, Math.ceil(lambda * 1.5) + 50);
   const dist = poissonPmf(lambda, maxVal);
-  return buildOuResult(config.label, dist, period, multiplier, count, matchModels.length);
+  return buildOuResult(config.label, dist, period, multiplier, count, matchModels.length, config.fixedLine);
 }
 
-function buildOuResult(label, dist, period, multiplier, available, total) {
+function buildOuResult(label, dist, period, multiplier, available, total, fixedLine) {
   const exp = expectedValue(dist);
-  const line = chooseLine(exp, 0.5);
+  const line = fixedLine ?? chooseLine(exp, 0.5);
   const odds = overUnderOdds(dist, line, multiplier);
   return {
     ok: true,
@@ -278,9 +278,9 @@ function inferStatDistribution(markets, event, config) {
   if (config.key === "redCards") {
     const underPrice = Number(candidate.under.price);
     if (!Number.isFinite(underPrice) || underPrice < 1.01) return null;
-    const pNoRed = clamp(DEFAULT_OU_MARGIN / underPrice, 0.01, 0.99);
+    const pNoRed = clamp(1 / underPrice, 0.01, 0.99);
     return {
-      mean: 1 - pNoRed,
+      mean: -Math.log(pNoRed),
       market: candidate.market.marketName,
       line: candidate.line
     };

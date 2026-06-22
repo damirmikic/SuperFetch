@@ -629,8 +629,8 @@ function getPeriod() {
   );
 }
 
-function updateRangeLabel(period = getPeriod()) {
-  elements.rangeLabel.textContent = formatPeriodLabel(period);
+function updateRangeLabel(period) {
+  elements.rangeLabel.textContent = formatPeriodLabel(period instanceof Event || !period ? getPeriod() : period);
 }
 
 function setStatus(text, isError = false) {
