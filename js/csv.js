@@ -160,8 +160,10 @@ export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName, i
   const market = toAsciiMarketName(String(finalMarketName).trim());
   const rawAnswer = toAsciiMarketName(String(finalOddName).trim());
 
+  const isScoreOddName = /^\d+\s*:\s*\d+$/.test(String(finalOddName).trim());
+
   let answer = "DA";
-  if (!isCombo && !isStatementOddName(finalOddName)) {
+  if (isScoreOddName || (!isCombo && !isStatementOddName(finalOddName))) {
     answer = rawAnswer && rawAnswer !== market ? rawAnswer : "DA";
   }
 
