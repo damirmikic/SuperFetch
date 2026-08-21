@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Running the app
 
-No build step, no package manager, no test suite. ES modules require HTTP — opening `index.html` directly fails.
+No build step, no package manager, no test suite. ES modules require HTTP — opening any `.html` file directly fails.
 
 ```powershell
 python -m http.server 5177
 ```
 
-Open `http://127.0.0.1:5177`. CORS is only an issue on non-localhost origins; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
+Open `http://127.0.0.1:5177/index.html` (soccer), `/basketball.html`, `/tennis.html`, or `/daily-specials.html`. CORS is only an issue on non-localhost origins; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
 
 ## Deployment
 
@@ -18,15 +18,38 @@ Open `http://127.0.0.1:5177`. CORS is only an issue on non-localhost origins; `n
 
 ## Architecture
 
-Vanilla JS SPA, no framework, no bundler. All modules are native ES modules.
+Vanilla JS, no framework, no bundler. Four HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
+
+| Page | Entry module | Sport |
+|---|---|---|
+| `index.html` | `js/main.js` | Soccer |
+| `basketball.html` | `js/basketball_main.js` | Basketball |
+| `tennis.html` | `js/tennis_main.js` | Tennis |
+| `daily-specials.html` | `js/daily_specials_main.js` | Soccer (synthetic markets) |
+
+### Shared modules
 
 | File | Role |
 |---|---|
-| `js/config.js` | API base URLs, locale, sport ID — environment-aware |
-| `js/api.js` | All network calls and response normalization |
-| `js/ui.js` | DOM rendering, all UI state, component factories |
-| `js/csv.js` | CSV generation, market name mapping, row manipulation |
-| `js/main.js` | Orchestrator — wires events, owns CSV string state |
+| `js/config.js` | API base URLs, locale, per-sport sport IDs — environment-aware. Imported only by `api.js`. |
+| `js/api.js` | All network calls and response normalization. `fetchSoccerCompetitions`/`fetchBasketballCompetitions`/`fetchTennisCompetitions` all funnel through a shared `fetchCompetitions(sportId)`. |
+| `js/ui.js` | DOM rendering, all UI state, component factories. **Single shared module across soccer/basketball/tennis**, not one per sport — sport-specific behavior is branched internally (e.g. `currentSportId === 4` for basketball's no-draws case, `isDefaultPlayerMarketBasketball`/`isDefaultPlayerMarketTennis`, `createPlayerGroupCardsBasketball`). |
+| `js/csv.js` | CSV generation, market name mapping, row manipulation — shared by soccer/basketball/tennis. **Not used by daily-specials**, which has its own CSV layer. |
+| `js/main.js` / `js/basketball_main.js` / `js/tennis_main.js` | Per-sport orchestrators — same shape (wire events, own the CSV string), each importing the same `ui.js`/`csv.js` surface plus a sport-specific competitions fetcher. |
+| `js/simulator.js` | Monte Carlo tournament/group simulation (World Cup–style groups + knockout). Imported only by `ui.js` — reached only through the soccer flow, no HTML loads it directly. |
+| `js/xg.js` | `calculateSoccerXg()` fits a Dixon-Coles Poisson model (via Shin-normalized 1X2 + Over/Under odds) to derive `lambdaHome`/`lambdaAway`/`rho` for a match. `calculateWorldCupPeriodOffer`/`calculateWorldCupSpecialMarkets` derive period-based goal markets from that fit. Consumed by `ui.js` (World Cup special markets in the soccer flow) and by `daily_specials_model.js` (synthetic markets). |
+| `js/world_cup_team_names.js` | Static team-name alias/normalization table. Only imported by `daily_specials_main.js`, to reconcile feed spellings against World Cup grouping data. |
+
+### Daily Specials (separate subsystem)
+
+`daily-specials.html` fetches real soccer fixtures/odds via `api.js`, but does not reuse `csv.js`. Instead:
+- `js/daily_specials_model.js` calls `calculateSoccerXg()` per match to get Dixon-Coles parameters, then synthesizes markets not present in the live feed: `buildMatchModel()`, `buildDailyTotals()`, `buildPlayerVsTeamRow()`, `buildTeamDuelRow()` (combines multiple matches into duel/vs markets).
+- It has its own CSV schema (`DAILY_CSV_COLUMNS`) and its own row builder (`buildDailyCsv()`), independent of `csv.js`'s `CSV_COLUMNS`.
+- `js/daily_specials_main.js` drives event/market selection and calls into the model to produce output.
+
+## Soccer flow details (`index.html` / `js/main.js`)
+
+The soccer entry point has the deepest feature set; the details below are specific to it (basketball/tennis reuse the same `ui.js`/`csv.js` machinery but only exercise a subset).
 
 ### Data flow
 
@@ -85,7 +108,7 @@ Six tabs: **Sve, Obično, Statistika, Specijali, Dom. igrači, Gost. igrači** �
 
 ### Player cards
 
-`createPlayerGroupCardsByTeam(markets, team, search)` builds collapsible cards. Cards start collapsed; clicking the header button toggles `is-expanded` which CSS-transitions `max-height` on `.player-odds-list`. `resolvePlayerName(odd)` handles the case where `odd.playerName` is a raw API ID (contains `:`), falling back to extracting `"Lastname, Firstname"` from `odd.name`.
+`createPlayerGroupCardsByTeam(markets, team, search)` builds collapsible cards. Cards start collapsed; clicking the header button toggles `is-expanded` which CSS-transitions `max-height` on `.player-odds-list`. `resolvePlayerName(odd)` handles the case where `odd.playerName` is a raw API ID (contains `:`), falling back to extracting `"Lastname, Firstname"` from `odd.name`. Basketball has its own variants, `createPlayerGroupCardsBasketball`/`createPlayerGroupCardBasketball`.
 
 ### CSV market allow-list
 
