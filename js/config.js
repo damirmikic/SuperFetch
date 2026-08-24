@@ -12,3 +12,9 @@ export const SUPERBET_CONFIG = {
   tennisSportId: 2,
   upcomingDays: 14
 };
+
+export const FPL_CONFIG = {
+  baseUrl: isLocal
+    ? "http://127.0.0.1:5178"
+    : "/fpl-api"
+};

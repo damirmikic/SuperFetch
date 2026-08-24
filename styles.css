@@ -766,6 +766,36 @@ optgroup {
   min-height: 260px;
 }
 
+.fantasy-select-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fantasy-select-actions .action-btn {
+  flex: 1;
+}
+
+.fantasy-note {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.fantasy-table-wrap {
+  overflow-x: auto;
+}
+
+.fantasy-table {
+  min-width: 720px;
+}
+
+.fantasy-points-cell {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 @media (max-width: 980px) {
   .daily-workspace,
   .workspace {

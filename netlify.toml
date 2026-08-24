@@ -6,3 +6,9 @@
   to = "https://production-superbet-offer-rs.freetls.fastly.net/sb-rs/api/v2/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/fpl-api/*"
+  to = "https://fantasy.premierleague.com/api/:splat"
+  status = 200
+  force = true

@@ -1,6 +1,16 @@
 # SPECIJALI
 
-Browser-based CSV generator for Superbet soccer/basketball odds and tournament group simulations.
+Browser-based CSV generator for Superbet soccer/basketball/tennis odds, tournament group simulations, daily specials, and a Fantasy Premier League expected-points calculator.
+
+## Pages
+
+| Page | Purpose |
+|---|---|
+| `index.html` | Soccer — CSV generator (this README covers it in detail below) |
+| `basketball.html` | Basketball — same CSV generator flow |
+| `tennis.html` | Tennis — same CSV generator flow |
+| `daily-specials.html` | Synthesizes cross-match "daily specials" (totals, player vs team, team duels) from real odds via a Dixon-Coles xG fit |
+| `fantasy.html` | Fantasy Premier League expected-points calculator (see below) |
 
 ## Run locally
 
@@ -12,9 +22,31 @@ python -m http.server 5177
 
 Then open `http://127.0.0.1:5177`.
 
+The Fantasy page additionally needs a local proxy for the FPL API, since `fantasy.premierleague.com` blocks CORS unconditionally:
+
+```powershell
+python fpl_proxy.py
+```
+
+Run this alongside the static server (listens on port 5178). Without it, `fantasy.html` fails to load player data.
+
 ## Deploy
 
-Push to GitHub and connect to Netlify. `netlify.toml` is already configured — it sets the publish directory to the repo root and proxies all API calls through `/sb-api` to solve CORS. No build step needed.
+Push to GitHub and connect to Netlify. `netlify.toml` is already configured — it sets the publish directory to the repo root and proxies Superbet calls through `/sb-api` and FPL API calls through `/fpl-api` to solve CORS. No build step needed.
+
+## Fantasy Premier League calculator (`fantasy.html`)
+
+Projects **expected Fantasy Premier League points per player** for upcoming Premier League fixtures, derived from real odds rather than manual entry.
+
+- **Fixtures** — pulled from the same Superbet feed as the soccer page, filtered to the English Premier League only.
+- **Player identity & position** — reconciled against the official FPL API (`fantasy.premierleague.com/api/bootstrap-static/`), which is the only source for GK/DEF/MID/FWD position (not present in the odds feed).
+- **Scoring** — official FPL rules, computed from odds-implied probabilities:
+  - Goals (10/6/5/4 pts by position) and assists (3 pts): anytime-scorer/assist market price → implied probability → Poisson goal-rate (`-ln(1-p)`) → points.
+  - Clean sheets (4 GK/DEF, 1 MID) and goals-conceded penalty (GK/DEF, -1 per 2 conceded): derived from the opponent's expected goals (Dixon-Coles xG fit, same model used by `daily-specials.html`).
+  - Cards (-1 yellow, -3 red): same anytime-market-to-probability conversion, applied to per-player card odds.
+  - Appearance (1-2 pts): approximated — awarded if any market exists for the player, since props are rarely offered for unlikely starters.
+- **Not modeled** (no corresponding odds market exists): bonus points, CBI/tackles thresholds, recoveries, saves, penalty saves/misses, own goals. Shown as a standing note in the UI rather than silently scored as zero.
+- Only players with at least one odds market in a selected fixture are shown — no guessed squad fill-in.
 
 ## Usage
 

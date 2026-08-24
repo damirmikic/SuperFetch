@@ -10,11 +10,19 @@ No build step, no package manager, no test suite. ES modules require HTTP — op
 python -m http.server 5177
 ```
 
-Open `http://127.0.0.1:5177/index.html` (soccer), `/basketball.html`, `/tennis.html`, or `/daily-specials.html`. CORS is only an issue on non-localhost origins; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
+Open `http://127.0.0.1:5177/index.html` (soccer), `/basketball.html`, `/tennis.html`, `/daily-specials.html`, or `/fantasy.html`. CORS is only an issue on non-localhost origins for the Superbet API; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
+
+`fantasy.html` additionally needs the FPL API proxy running, since `fantasy.premierleague.com` blocks CORS unconditionally (unlike the Superbet CDN, which allows direct localhost access):
+
+```powershell
+python fpl_proxy.py
+```
+
+This listens on port 5178 and must run alongside `python -m http.server 5177`. Without it, the Fantasy page's "Izracunaj" button fails with a CORS error in the console.
 
 ## Deployment
 
-`netlify.toml` sets `publish = "."` and rewrites `/sb-api/*` to the Superbet CDN. `js/config.js` detects `localhost`/`127.0.0.1` and uses the direct CDN URL locally; everywhere else it uses `/sb-api`.
+`netlify.toml` sets `publish = "."` and rewrites `/sb-api/*` to the Superbet CDN and `/fpl-api/*` to the FPL API. `js/config.js` detects `localhost`/`127.0.0.1`: for Superbet it uses the direct CDN URL locally (no CORS restriction there); for FPL it always routes through a proxy — `fpl_proxy.py` locally, `/fpl-api` in production — since the FPL CDN blocks CORS from any origin.
 
 ## Architecture
 

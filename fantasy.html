@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FANTASY - EPL Kalkulator</title>
+    <meta name="description" content="Fantasy Premier League kalkulator ocekivanih poena na bazi kvota.">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-root">
+      <header class="topbar" aria-labelledby="app-title">
+        <div class="topbar-brand">
+          <span class="brand-icon" aria-hidden="true">FA</span>
+          <div>
+            <span class="brand-tag">fantasy poeni kalkulator</span>
+            <h1 id="app-title" class="brand-name">FANTASY</h1>
+          </div>
+        </div>
+        <nav class="sports-nav">
+          <a href="index.html" class="sport-link">Fudbal</a>
+          <a href="basketball.html" class="sport-link">Kosarka</a>
+          <a href="tennis.html" class="sport-link">Tenis</a>
+          <a href="daily-specials.html" class="sport-link">Dnevni Specijali</a>
+          <a href="fantasy.html" class="sport-link is-active">Fantasy</a>
+        </nav>
+        <div class="topbar-controls">
+          <div id="status" class="status-pill" role="status">Starting...</div>
+          <button id="refresh-button" class="icon-btn" type="button" title="Refresh" aria-label="Refresh">R</button>
+        </div>
+      </header>
+
+      <main class="workspace daily-workspace">
+        <aside class="sidebar daily-sidebar" aria-labelledby="fantasy-events-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Premier League</span>
+              <h2 id="fantasy-events-title" class="panel-title">Mecevi</h2>
+            </div>
+            <div id="events-status" class="status-pill" role="status">Loading...</div>
+          </div>
+
+          <div class="daily-controls">
+            <div class="daily-time-grid">
+              <label class="field">
+                <span class="field-label">Datum od</span>
+                <input id="fantasy-date-from" class="daily-input" type="date">
+              </label>
+              <label class="field">
+                <span class="field-label">Datum do</span>
+                <input id="fantasy-date-to" class="daily-input" type="date">
+              </label>
+            </div>
+            <button id="load-events-button" class="action-btn action-btn--primary" type="button">Ucitaj meceve</button>
+          </div>
+
+          <div class="fantasy-select-actions">
+            <button id="select-all-events" class="action-btn action-btn--secondary" type="button">Selektuj sve</button>
+            <button id="deselect-all-events" class="action-btn action-btn--secondary" type="button">Deselektuj sve</button>
+          </div>
+
+          <div id="fantasy-events-list" class="daily-events-list">
+            <div class="empty-state">
+              <span class="empty-icon">--</span>
+              <span>Loading fixtures...</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="markets-panel daily-panel" aria-labelledby="fantasy-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Kalkulator</span>
+              <h2 id="fantasy-title" class="panel-title">Ocekivani Fantasy Poeni</h2>
+            </div>
+            <div class="panel-head-right">
+              <div id="players-status" class="status-pill" role="status">Calculate projections to see players.</div>
+            </div>
+          </div>
+
+          <div class="daily-grid">
+            <section class="daily-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Napomena</span>
+                  <h3 class="panel-title">Sta nije modelovano</h3>
+                </div>
+              </div>
+              <p class="fantasy-note">
+                Bonus poeni, CBI/tackles pragovi, recoveries, odbrane penala/promasaji penala i autogolovi nisu
+                modelovani jer za njih ne postoji odgovarajuci market u kvotama. Appearance poeni (1-2) su
+                aproksimacija: dodeljuju se ako za igraca postoji bilo koji market (strelac/asistencija/karton),
+                jer se takvi marketi retko nude za igrace koji verovatno nece igrati.
+              </p>
+            </section>
+
+            <section class="daily-section daily-csv-section">
+              <div class="daily-section-head">
+                <div>
+                  <span class="eyebrow">Projekcije</span>
+                  <h3 class="panel-title">Igraci</h3>
+                </div>
+                <button id="calculate-button" class="action-btn action-btn--primary" type="button">Izracunaj</button>
+              </div>
+              <div class="daily-form-grid">
+                <label class="field">
+                  <span class="field-label">Pozicija</span>
+                  <select id="position-filter">
+                    <option value="">Sve pozicije</option>
+                    <option value="GK">GK</option>
+                    <option value="DEF">DEF</option>
+                    <option value="MID">MID</option>
+                    <option value="FWD">FWD</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Pretraga</span>
+                  <input id="player-search" class="daily-input" type="text" placeholder="Ime igraca...">
+                </label>
+              </div>
+              <div class="fantasy-table-wrap">
+                <table class="daily-table fantasy-table">
+                  <thead>
+                    <tr>
+                      <th>Igrac</th>
+                      <th>Tim</th>
+                      <th>Poz</th>
+                      <th>Mec</th>
+                      <th>xPts</th>
+                      <th>Golovi</th>
+                      <th>Asistencije</th>
+                      <th>Clean Sheet</th>
+                      <th>Kartoni/Primljeni</th>
+                    </tr>
+                  </thead>
+                  <tbody id="players-table-body">
+                    <tr><td colspan="9" class="is-muted">Calculate projections to see players.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./js/fantasy_main.js"></script>
+  </body>
+</html>
