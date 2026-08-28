@@ -81,7 +81,7 @@ export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName 
   const marketNorm = normalizeSearchText(marketName);
   const isSpecialYesNo = (marketNorm.includes("oba tima") || marketNorm.includes("svaki tim"))
     && marketNorm.includes("vise od")
-    && (marketNorm.includes("karton") || marketNorm.includes("sutev") && marketNorm.includes("okvir") || marketNorm.includes("korner"));
+    && (marketNorm.includes("karton") || marketNorm.includes("sutev") && marketNorm.includes("okvir") || marketNorm.includes("korner") || marketNorm.includes("odbran"));
 
   if (isSpecialYesNo) {
     const selectedOdd = market.odds.find((odd) => /\b(da|yes)\b/i.test(String(odd.name))) || market.odds[0];
@@ -1092,7 +1092,7 @@ function hasStatistikaKeywords(text) {
   const norm = normalizeSearchText(text);
   const keywords = [
     "korner", "karton", "faul", "ofsajd", "sut", "sutev", "udarac", "udarci",
-    "saves", "obrane", "odbrane", "ubacaj", "slobodan udarac",
+    "saves", "obrane", "obrana", "odbrane", "odbrana", "golman", "ubacaj", "slobodan udarac",
     "asistenc", "skok", "ukraden", "izgubljen", "slobodna bacanja", "3 poen", "trojk",
     "asov", "asev", "dupl", "brejk"
   ];

@@ -865,7 +865,7 @@ const STATISTIKA_KEYWORDS = [
   "autogol", "auto gol", "own goal",
   "šut", "sut", "sutev", "šuteva", "udarac", "udarci",
   "šutevi na gol", "sutevi na gol", "šuteve u okvir", "suteve u okvir",
-  "saves", "obrane", "odbrane",
+  "saves", "obrane", "obrana", "odbrane", "odbrana", "odbrana golmana",
   "ubačaj", "ubackaj", "throw-in",
   "slobodan udarac", "slobodni udarac",
 ];
@@ -1952,6 +1952,7 @@ const DEFAULT_MARKET_BASES = [
   "Ukupno ofsajda",
   "{home} ukupno ofsajda",
   "{away} ukupno ofsajda",
+  "Ukupno odbrana golmana",
   "Ukupno dosuđenih penala",
 ];
 
