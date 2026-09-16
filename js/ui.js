@@ -1,6 +1,7 @@
 import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString, translateComboName } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
-import { calculateSoccerXg, calculateWorldCupPeriodOffer, calculateWorldCupSpecialMarkets } from "./xg.js?v=20260614-6";
+import { calculateSoccerXg, calculateWorldCupPeriodOffer, calculateWorldCupSpecialMarkets, calculateHeadedGoalMarket } from "./xg.js?v=20260916-1";
+
 
 const datetimeDisplay = document.querySelector("#datetime-display");
 const datetimeFmt = new Intl.DateTimeFormat("sr-Latn-RS", {
@@ -868,6 +869,7 @@ const STATISTIKA_KEYWORDS = [
   "saves", "obrane", "obrana", "odbrane", "odbrana", "odbrana golmana",
   "ubačaj", "ubackaj", "throw-in",
   "slobodan udarac", "slobodni udarac",
+  "glav",
 ];
 
 /**
@@ -2199,6 +2201,35 @@ export function addDefaultStatistikaMarkets() {
       document.dispatchEvent(new CustomEvent("add-statistika-to-csv", {
         detail: { market: best, button: btn }
       }));
+    }
+  }
+
+  // ── Synthetic "Gol glavom" market (soccer only) ───────────────────────────
+  // Derived from Dixon-Coles xG × league-specific headed goal rate → Poisson P(≥1)
+  if (currentSportId === 5) {
+    const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
+    if (xgResult.ok) {
+      const comp = getSelectedCompetition();
+      const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
+      const headed = calculateHeadedGoalMarket(xgResult, leagueName);
+      if (headed) {
+        const specKey = "gol glavom";
+        if (!host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) {
+          const btn = document.createElement("button");
+          btn.className = "add-odd-button add-odd-button--inline";
+          btn.dataset.specKey = specKey;
+          btn.dataset.marketType = "outright";
+          host.appendChild(btn);
+          document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
+            detail: {
+              marketName: headed.marketName,
+              odd: { name: "Da", price: headed.yesOdds * 0.9 }, // built-in 10% margin
+              button: btn,
+              isCombo: false
+            }
+          }));
+        }
+      }
     }
   }
 }

@@ -1,4 +1,16 @@
 const TARGET_TOTAL_LINES = [2.5, 3.5, 4.5];
+
+// ── Headed goal rates per league ─────────────────────────────────────────────
+// Source: empirical big-5 league data (Premier League 17.88%, Serie A 16.46%,
+// Bundesliga 15.45%, La Liga 14.41%, Ligue 1 12.86%, default 15%)
+const HEADED_GOAL_RATES = [
+  { keywords: ["premier league", "engleska"], rate: 0.1788 },
+  { keywords: ["serie a", "italija"],         rate: 0.1646 },
+  { keywords: ["bundesliga", "nemacka"],      rate: 0.1545 },
+  { keywords: ["la liga", "spanija"],         rate: 0.1441 },
+  { keywords: ["ligue 1", "francuska"],       rate: 0.1286 },
+];
+const HEADED_GOAL_DEFAULT_RATE = 0.15;
 const MAX_GOALS = 12;
 const BALANCED_LINE_THRESHOLD = 0.12;
 const BALANCE_IMPROVEMENT_THRESHOLD = 0.08;
@@ -181,6 +193,52 @@ export function calculateWorldCupSpecialMarkets(xgResult, event) {
   });
 
   return markets;
+}
+
+/**
+ * Compute a synthetic "Gol glavom" (headed goal) market from Dixon-Coles xG.
+ * Uses a league-specific headed goal rate applied to totalLambda, then derives
+ * Poisson P(X≥1) to get the "Da" probability and corresponding odds.
+ *
+ * @param {object} xgResult  - Result of calculateSoccerXg() with ok === true
+ * @param {string} leagueName - Raw tournament/category name from the feed
+ * @returns {{ marketName, headedLambda, headedRate, source, yesProb, yesOdds }|null}
+ */
+export function calculateHeadedGoalMarket(xgResult, leagueName) {
+  if (!xgResult?.ok) return null;
+  const totalLambda = xgResult.lambdaHome + xgResult.lambdaAway;
+  if (!Number.isFinite(totalLambda) || totalLambda <= 0) return null;
+
+  // Normalize: strip diacritics, lowercase — so "Španija"→"spanija", etc.
+  const norm = String(leagueName ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  let headedRate = HEADED_GOAL_DEFAULT_RATE;
+  let source = "default";
+
+  for (const entry of HEADED_GOAL_RATES) {
+    if (entry.keywords.some((kw) => norm.includes(kw))) {
+      headedRate = entry.rate;
+      source = entry.keywords[0];
+      break;
+    }
+  }
+
+  const headedLambda = totalLambda * headedRate;
+  const yesProb = 1 - Math.exp(-headedLambda);
+  if (!Number.isFinite(yesProb) || yesProb <= 0) return null;
+
+  return {
+    marketName: "Gol glavom",
+    headedLambda,
+    headedRate,
+    source,
+    yesProb,
+    yesOdds: Math.min(999, 1 / yesProb),
+  };
 }
 
 function periodWinProbability(homeLambda, awayLambda, side) {

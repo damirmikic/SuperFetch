@@ -26,7 +26,7 @@ This listens on port 5178 and must run alongside `python -m http.server 5177`. W
 
 ## Architecture
 
-Vanilla JS, no framework, no bundler. Four HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
+Vanilla JS, no framework, no bundler. Five HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
 
 | Page | Entry module | Sport |
 |---|---|---|
@@ -34,6 +34,7 @@ Vanilla JS, no framework, no bundler. Four HTML pages, each a separate entry poi
 | `basketball.html` | `js/basketball_main.js` | Basketball |
 | `tennis.html` | `js/tennis_main.js` | Tennis |
 | `daily-specials.html` | `js/daily_specials_main.js` | Soccer (synthetic markets) |
+| `fantasy.html` | `js/fantasy_main.js` | Soccer (EPL fantasy points, synthetic) |
 
 ### Shared modules
 
@@ -47,6 +48,8 @@ Vanilla JS, no framework, no bundler. Four HTML pages, each a separate entry poi
 | `js/simulator.js` | Monte Carlo tournament/group simulation (World Cup–style groups + knockout). Imported only by `ui.js` — reached only through the soccer flow, no HTML loads it directly. |
 | `js/xg.js` | `calculateSoccerXg()` fits a Dixon-Coles Poisson model (via Shin-normalized 1X2 + Over/Under odds) to derive `lambdaHome`/`lambdaAway`/`rho` for a match. `calculateWorldCupPeriodOffer`/`calculateWorldCupSpecialMarkets` derive period-based goal markets from that fit. Consumed by `ui.js` (World Cup special markets in the soccer flow) and by `daily_specials_model.js` (synthetic markets). |
 | `js/world_cup_team_names.js` | Static team-name alias/normalization table. Only imported by `daily_specials_main.js`, to reconcile feed spellings against World Cup grouping data. |
+| `js/epl_team_names.js` | Static team-name alias/normalization table for the English Premier League (odds-feed spelling → FPL API spelling). Only imported by `fantasy_model.js`. |
+| `js/fpl_api.js` | Fetches and caches the FPL `bootstrap-static` endpoint (`fetchFplData()`), normalizing it to `{ players, teamsById }`. Only imported by `fantasy_main.js`. Uses `FPL_CONFIG` from `config.js`, not `SUPERBET_CONFIG`. |
 
 ### Daily Specials (separate subsystem)
 
@@ -54,6 +57,20 @@ Vanilla JS, no framework, no bundler. Four HTML pages, each a separate entry poi
 - `js/daily_specials_model.js` calls `calculateSoccerXg()` per match to get Dixon-Coles parameters, then synthesizes markets not present in the live feed: `buildMatchModel()`, `buildDailyTotals()`, `buildPlayerVsTeamRow()`, `buildTeamDuelRow()` (combines multiple matches into duel/vs markets).
 - It has its own CSV schema (`DAILY_CSV_COLUMNS`) and its own row builder (`buildDailyCsv()`), independent of `csv.js`'s `CSV_COLUMNS`.
 - `js/daily_specials_main.js` drives event/market selection and calls into the model to produce output.
+
+### Fantasy calculator (separate subsystem)
+
+`fantasy.html` projects **expected Fantasy Premier League points per player** for upcoming EPL fixtures, using real odds instead of manual stat entry. Like Daily Specials, it fetches via `api.js` but does not reuse `csv.js`.
+
+- **Fixture scope**: `fantasy_main.js` filters the soccer competition tree to `categoryName === "Engleska"` + `tournamentName === "Premier League"` only — matching on tournament name alone is not enough, since many countries have a top flight literally named "Premier League" (Hong Kong, Israel, Kazakhstan, etc.).
+- **Player identity/position**: the odds feed has no player-position field at all (no GK/DEF/MID/FWD anywhere), so `fpl_api.js` fetches the official FPL `bootstrap-static` endpoint as the source of truth for position, team, and canonical name. `fantasy_model.js`'s `matchFplPlayersToFixture()` reconciles odds-feed player names against the FPL squad for each fixture's two teams (narrowed by team via `epl_team_names.js` aliases first, to avoid cross-team surname collisions).
+- **Odd-name shape matters**: anytime-scorer/assist/card markets in the feed are typically **one market per player** with a single priced odd (the odd's `name` *is* the player's name, e.g. `"Gyokeres, Viktor"` at price 1.78) — not a Yes/No pair. Assist markets go further: `odd.playerName` is often a raw `sr:player:<id>` string rather than a clean name, so the display name must be parsed out of `odd.name` instead (e.g. `"Hamer, Gustavo - Više od 0.5"`). `buildAnytimeProbabilityModel()`/`buildCardProbabilityModel()`/`oddBelongsToPlayer()` in `fantasy_model.js` handle both cases; don't assume the `daily_specials_model.js`-style Yes/No pattern applies here.
+- **Scoring math**: an anytime market price → implied probability (de-vigged against a "No" leg when one exists) → Poisson goal-rate via `-ln(1-p)` → points by position. Clean-sheet and goals-conceded points come from the opponent's Dixon-Coles lambda (`calculateSoccerXg()`, reused as-is) rather than from any clean-sheet market. Bonus points, CBI/tackles thresholds, recoveries, saves, penalty saves/misses, and own goals have no odds signal and are intentionally left out of the total — surfaced as a static note in `fantasy.html`, not computed as zero.
+- `js/fantasy_main.js` aggregates **across all selected fixtures** (a gameweek's worth), unlike Daily Specials which reasons mostly per-match — the natural unit of work is "per player across their match."
+
+### FPL API proxy (local dev only)
+
+`fantasy.premierleague.com` blocks CORS unconditionally, even from localhost (unlike the Superbet CDN). `fpl_proxy.py` (run separately, port 5178) mirrors the `/fpl-api/*` → FPL API rewrite that `netlify.toml` applies in production; `FPL_CONFIG.baseUrl` in `config.js` points at it when `isLocal`. See "Running the app" above.
 
 ## Soccer flow details (`index.html` / `js/main.js`)
 
