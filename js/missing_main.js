@@ -800,7 +800,7 @@ function exportAliases() {
     .map(([merkurName, superbetName]) => `    [${JSON.stringify(merkurName)}, ${JSON.stringify(superbetName)}],`);
 
   const content = [
-    "// Aliases confirmed in the Razlike page. Merge these into the matching",
+    "// Aliases confirmed in the Missing page. Merge these into the matching",
     "// CLUB_ALIASES_BY_SPORT entry in js/merkur_team_names.js, then clear them.",
     `  ${state.sportKey}: [`,
     ...lines,

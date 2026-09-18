@@ -1,5 +1,5 @@
 /**
- * Which sports the Razlike page compares, and how each one has to be matched.
+ * Which sports the Missing page compares, and how each one has to be matched.
  *
  * Adding a sport is one entry here - nothing else in the comparison flow is
  * sport-specific. The two fields that are not obvious:
