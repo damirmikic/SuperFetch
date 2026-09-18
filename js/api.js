@@ -86,6 +86,40 @@ export async function fetchPrematchEventsForCompetition(tournamentId, date = new
   return (payload.data ?? []).map(normalizeEvent);
 }
 
+/**
+ * The by-date endpoint happily omits `tournamentIds`, in which case it returns
+ * the whole prematch offer across every sport in one request - which is what a
+ * book-vs-book comparison needs, since there is no per-competition list to
+ * iterate first. Callers filter by `sportId` themselves, so one fetch serves
+ * every sport being compared.
+ */
+export async function fetchAllPrematchEvents(date = new Date()) {
+  const startDate = formatApiDate(startOfDay(date));
+  const params = new URLSearchParams({
+    currentStatus: "active",
+    offerState: "prematch",
+    startDate
+  });
+
+  const response = await fetch(endpoint(`/events/by-date?${params}`), {
+    headers: {
+      accept: "application/json, text/plain, */*"
+    }
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Superbet events API returned ${response.status}`);
+  }
+
+  if (payload.error) {
+    throw new Error("Superbet events API returned an error payload");
+  }
+
+  return (payload.data ?? []).map(normalizeEvent);
+}
+
 export async function fetchMarketsForEvent(event) {
   let odds = await fetchEventOdds(event.eventId);
 
@@ -155,8 +189,10 @@ function normalizeEvent(event) {
 
   return {
     eventId: Number(event.eventId),
+    sportId: Number(event.sportId ?? 0),
     tournamentId: Number(event.tournamentId),
     categoryId: Number(event.categoryId),
+    unixDateMillis: Number(event.unixDateMillis ?? 0),
     matchName: event.matchName ?? "Unnamed event",
     homeTeam: (teams[0] ?? "").trim(),
     awayTeam: (teams[1] ?? "").trim(),

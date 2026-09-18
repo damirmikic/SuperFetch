@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RAZLIKE - Superbet vs Merkur</title>
+    <meta name="description" content="Mecevi koji postoje na Superbetu a nedostaju na Merkurxtip ponudi.">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-root">
+      <header class="topbar" aria-labelledby="app-title">
+        <div class="topbar-brand">
+          <span class="brand-icon" aria-hidden="true">RZ</span>
+          <div>
+            <span class="brand-tag">superbet vs merkurxtip</span>
+            <h1 id="app-title" class="brand-name">RAZLIKE</h1>
+          </div>
+        </div>
+        <nav class="sports-nav">
+          <a href="index.html" class="sport-link">Fudbal</a>
+          <a href="basketball.html" class="sport-link">Kosarka</a>
+          <a href="tennis.html" class="sport-link">Tenis</a>
+          <a href="daily-specials.html" class="sport-link">Dnevni Specijali</a>
+          <a href="fantasy.html" class="sport-link">Fantasy</a>
+          <a href="missing.html" class="sport-link is-active">Razlike</a>
+        </nav>
+        <div class="topbar-controls">
+          <div id="status" class="status-pill" role="status">Starting...</div>
+          <button id="refresh-button" class="icon-btn" type="button" title="Refresh" aria-label="Refresh">R</button>
+        </div>
+      </header>
+
+      <main class="workspace daily-workspace">
+        <aside class="sidebar daily-sidebar" aria-labelledby="missing-filters-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Poredjenje ponuda</span>
+              <h2 id="missing-filters-title" class="panel-title">Filteri</h2>
+            </div>
+          </div>
+
+          <div class="daily-controls">
+            <label class="field">
+              <span class="field-label">Pretraga</span>
+              <input id="missing-search" class="daily-input" type="search" placeholder="Tim, liga ili zemlja" autocomplete="off">
+            </label>
+
+            <div class="daily-time-grid">
+              <label class="field">
+                <span class="field-label">Datum od</span>
+                <input id="missing-date-from" class="daily-input" type="date">
+              </label>
+              <label class="field">
+                <span class="field-label">Datum do</span>
+                <input id="missing-date-to" class="daily-input" type="date">
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">Strogost uparivanja</span>
+              <select id="missing-strictness" class="daily-input">
+                <option value="loose">Labavo - manje laznih razlika</option>
+                <option value="normal" selected>Normalno</option>
+                <option value="strict">Strogo - samo sigurna uparivanja</option>
+              </select>
+            </label>
+
+            <label class="field field--inline">
+              <input id="missing-only-odds" type="checkbox" checked>
+              <span class="field-label">Samo mecevi sa kvotom</span>
+            </label>
+
+            <label class="field field--inline">
+              <input id="missing-show-dismissed" type="checkbox">
+              <span class="field-label">Prikazi cekirane</span>
+            </label>
+
+            <button id="reload-button" class="action-btn action-btn--primary" type="button">Osvezi ponude</button>
+            <button id="clear-dismissed-button" class="action-btn action-btn--danger" type="button" disabled>Ocisti cekirano</button>
+          </div>
+
+          <p class="fantasy-note">
+            Feedovi nemaju zajednicki ID meca, pa se uparivanje radi po vremenu pocetka
+            (<span id="tolerance-note">tolerancija 15 min</span>) i slicnosti imena timova. Ako se neki mec
+            ovde pojavi a postoji na Merkuru, prebaci strogost na "Labavo".
+          </p>
+
+          <p class="fantasy-note">
+            Cekiranje znaci "ovo ne treba u ponudi" - mec ili cela liga nestaju iz liste i iz izvoza. Cekirane
+            lige se pamte trajno, a cekirani mecevi se brisu sami kad im prodje termin. "Prikazi cekirane" ih
+            vraca u prikaz da mozes da ih odcekiras.
+          </p>
+        </aside>
+
+        <section class="markets-panel daily-panel" aria-labelledby="missing-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Nedostaje na Merkuru</span>
+              <h2 id="missing-title" class="panel-title">Superbet mecevi bez para</h2>
+            </div>
+            <div class="panel-head-right">
+              <div id="missing-result-status" class="status-pill" role="status">Ucitavanje...</div>
+              <button id="copy-button" class="action-btn action-btn--secondary" type="button" disabled>Kopiraj listu</button>
+              <button id="download-button" class="action-btn action-btn--primary" type="button" disabled>Preuzmi</button>
+            </div>
+          </div>
+
+          <div id="missing-summary" class="csv-status-text" role="status">Ucitavanje ponuda...</div>
+
+          <div id="sport-tabs" class="market-tabs sport-tabs" role="tablist" aria-label="Sport"></div>
+
+          <div class="market-tabs" role="tablist">
+            <button id="tab-missing" class="market-tab is-active" type="button" role="tab">Nedostaje na Merkuru</button>
+            <button id="tab-orphans" class="market-tab" type="button" role="tab">Neupareni sa Merkura</button>
+          </div>
+
+          <div id="missing-panel">
+            <div id="missing-list" class="missing-list">
+              <div class="empty-state">
+                <span class="empty-icon">--</span>
+                <span>Ucitavanje...</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="orphans-panel" hidden>
+            <p class="fantasy-note">
+              Ovo su Merkur mecevi bez para na Superbetu. Svaki propust matchera mora da se pojavi ovde, pa je
+              ovo lista koju treba pregledati - ne onih nekoliko stotina sa prve kartice. Uz svaki mec stoji
+              najbolji preostali Superbet kandidat i njegov skor; "Povezi" pamti par imena kao alias, pa vazi i
+              za sva buduca kola.
+            </p>
+            <div class="missing-alias-actions">
+              <div id="alias-status" class="csv-status-text" role="status">Nema rucnih aliasa</div>
+              <button id="export-aliases-button" class="action-btn action-btn--secondary" type="button" disabled>Izvezi aliase</button>
+              <button id="clear-aliases-button" class="action-btn action-btn--danger" type="button" disabled>Obrisi aliase</button>
+            </div>
+            <div id="orphans-list" class="missing-list"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./js/missing_main.js"></script>
+  </body>
+</html>

@@ -12,3 +12,9 @@
   to = "https://fantasy.premierleague.com/api/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/mx-api/*"
+  to = "https://www.merkurxtip.rs/restapi/:splat"
+  status = 200
+  force = true

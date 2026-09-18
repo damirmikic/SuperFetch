@@ -13,6 +13,16 @@ export const SUPERBET_CONFIG = {
   upcomingDays: 14
 };
 
+export const MERKUR_CONFIG = {
+  // Merkurxtip sends Access-Control-Allow-Origin: * so the browser can hit it
+  // directly; the production rewrite exists only so the app keeps working if
+  // that header is ever withdrawn.
+  baseUrl: isLocal
+    ? "https://www.merkurxtip.rs/restapi"
+    : "/mx-api",
+  locale: "sr"
+};
+
 export const FPL_CONFIG = {
   baseUrl: isLocal
     ? "http://127.0.0.1:5178"

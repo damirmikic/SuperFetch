@@ -2420,3 +2420,235 @@ optgroup {
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.25);
 }
+
+/* ─────────────────────────────────────────
+   Razlike (Superbet vs Merkurxtip)
+───────────────────────────────────────── */
+.missing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.missing-group {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.missing-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.missing-group-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.missing-group-count {
+  flex: none;
+  min-width: 24px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.missing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.missing-table th,
+.missing-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.missing-table tr:last-child td {
+  border-bottom: none;
+}
+
+.missing-table th {
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.missing-table th.col-numeric,
+.missing-table td.col-numeric {
+  width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.missing-table td.col-numeric {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.missing-time {
+  width: 92px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.missing-match {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.missing-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.missing-alias-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.missing-alias-actions .csv-status-text {
+  flex: 1;
+  margin: 0;
+}
+
+.orphan-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.orphan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.orphan-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.orphan-meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.orphan-empty {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.orphan-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.orphan-suggestion:last-child {
+  border-bottom: none;
+}
+
+.orphan-score {
+  flex: none;
+  min-width: 42px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.orphan-candidate {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.missing-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.missing-dismiss input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--red);
+}
+
+.missing-dismiss input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.missing-table th.missing-dismiss-col,
+.missing-table td.missing-dismiss-col {
+  width: 34px;
+  padding-right: 0;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.missing-table tr.is-dismissed td {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.missing-table tr.is-dismissed td.missing-dismiss-col {
+  text-decoration: none;
+}
+
+.missing-group.is-dismissed .missing-group-title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.missing-group.is-dismissed .missing-group-count {
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+
+.sport-tabs {
+  margin-bottom: 4px;
+}
+
+.sport-tabs .market-tab {
+  font-weight: 700;
+}
