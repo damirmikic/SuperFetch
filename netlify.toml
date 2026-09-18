@@ -18,3 +18,9 @@
   to = "https://www.merkurxtip.rs/restapi/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/bb-api/*"
+  to = "https://sports-sm-distribution-api.de-2.nsoftcdn.com/api/v1/:splat"
+  status = 200
+  force = true

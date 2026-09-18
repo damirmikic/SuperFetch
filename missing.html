@@ -62,6 +62,15 @@
             </div>
 
             <label class="field">
+              <span class="field-label">Prikazi</span>
+              <select id="missing-presence" class="daily-input">
+                <option value="any" selected>Nedostaje bar jednoj</option>
+                <option value="all">Nedostaje svima</option>
+                <option value="none">Sve Superbet meceve</option>
+              </select>
+            </label>
+
+            <label class="field">
               <span class="field-label">Strogost uparivanja</span>
               <select id="missing-strictness" class="daily-input">
                 <option value="loose">Labavo - manje laznih razlika</option>
@@ -116,7 +125,7 @@
 
           <div class="market-tabs" role="tablist">
             <button id="tab-missing" class="market-tab is-active" type="button" role="tab">Nedostaje na Merkuru</button>
-            <button id="tab-orphans" class="market-tab" type="button" role="tab">Neupareni sa Merkura</button>
+            <button id="tab-orphans" class="market-tab" type="button" role="tab">Neupareni kod konkurencije</button>
           </div>
 
           <div id="missing-panel">
@@ -130,10 +139,10 @@
 
           <div id="orphans-panel" hidden>
             <p class="fantasy-note">
-              Ovo su Merkur mecevi bez para na Superbetu. Svaki propust matchera mora da se pojavi ovde, pa je
-              ovo lista koju treba pregledati - ne onih nekoliko stotina sa prve kartice. Uz svaki mec stoji
-              najbolji preostali Superbet kandidat i njegov skor; "Povezi" pamti par imena kao alias, pa vazi i
-              za sva buduca kola.
+              Ovo su mecevi konkurentskih kladionica bez para na Superbetu. Svaki propust matchera mora da se
+              pojavi ovde, pa je ovo lista koju treba pregledati - ne onih nekoliko stotina sa prve kartice. Uz
+              svaki mec stoji najbolji preostali Superbet kandidat i njegov skor; "Povezi" pamti par imena kao
+              alias za tu kladionicu, pa vazi i za sva buduca kola.
             </p>
             <div class="missing-alias-actions">
               <div id="alias-status" class="csv-status-text" role="status">Nema rucnih aliasa</div>

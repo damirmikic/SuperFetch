@@ -1,7 +1,9 @@
 import { fetchCompetitions, fetchAllPrematchEvents } from "./api.js";
 import { fetchMerkurMatches } from "./merkur_api.js";
-import { compareOffers, eventKickoffMs, suggestPartners } from "./match_matcher.js";
-import { aliasPairsForSport } from "./merkur_team_names.js";
+import { fetchBalkanbetMatches, resetBalkanbetCache } from "./balkanbet_api.js";
+import { compareOffers, eventKickoffMs, suggestPartners, teamSimilarity, buildAliasIndex } from "./match_matcher.js";
+import { aliasPairsFor } from "./team_name_aliases.js";
+import { BOOKS } from "./books.js";
 import { COMPARISON_SPORTS, DEFAULT_SPORT_KEY, findSport } from "./sports.js";
 
 const STRICTNESS_PRESETS = {
@@ -25,9 +27,12 @@ const dayKeyFmt = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit"
 });
 
-// Every persisted set is namespaced by sport: a dismissed league or a club
-// alias means nothing outside the sport it was recorded in.
-const ALIAS_STORAGE_KEY = "superfetch.merkurAliases";
+// Aliases are namespaced by book and sport - a name is only ever wrong in the
+// feed it came from. Dismissals are namespaced by sport only, because "this
+// does not belong in our offer" is a judgement about our offer, not about a
+// competitor.
+const ALIAS_STORAGE_KEY = "superfetch.aliases";
+const LEGACY_ALIAS_KEY = "superfetch.merkurAliases";
 const DISMISSED_EVENTS_KEY = "superfetch.dismissedEvents";
 const DISMISSED_TOURNAMENTS_KEY = "superfetch.dismissedTournaments";
 // A suggestion below this is noise rather than a candidate worth showing.
@@ -43,6 +48,7 @@ const elements = {
   dateFrom: document.querySelector("#missing-date-from"),
   dateTo: document.querySelector("#missing-date-to"),
   strictness: document.querySelector("#missing-strictness"),
+  presence: document.querySelector("#missing-presence"),
   onlyWithOdds: document.querySelector("#missing-only-odds"),
   summary: document.querySelector("#missing-summary"),
   resultStatus: document.querySelector("#missing-result-status"),
@@ -63,7 +69,9 @@ const elements = {
 
 const state = {
   // Superbet's by-date call returns every sport at once, so it is fetched once
-  // and shared; only the Merkur offer and the competition tree are per sport.
+  // and shared; only the competitors' offers and the competition tree are per
+  // sport. Balkanbet's own feed is likewise one call for all sports, cached
+  // inside balkanbet_api.js.
   allSuperbetEvents: [],
   superbetLoaded: false,
   sportKey: DEFAULT_SPORT_KEY,
@@ -72,20 +80,29 @@ const state = {
   loading: false
 };
 
-function storageKey(base, sportKey) {
-  return `${base}.${sportKey}`;
+function storageKey(base, ...parts) {
+  return [base, ...parts].join(".");
 }
 
 function createSportState(sportKey) {
+  const books = {};
+
+  for (const book of BOOKS) {
+    books[book.key] = {
+      matches: [],
+      pairedEventIds: new Set(),
+      orphans: [],
+      manualAliases: loadStoredAliases(book.key, sportKey)
+    };
+  }
+
   return {
     tournamentsById: new Map(),
-    merkurMatches: [],
-    missing: [],
+    books,
+    rows: [],
     visible: [],
-    orphans: [],
     summaryBase: [],
     loaded: false,
-    manualAliases: loadStoredAliases(sportKey),
     dismissedEvents: loadStoredIdSet(storageKey(DISMISSED_EVENTS_KEY, sportKey)),
     dismissedTournaments: loadStoredIdSet(storageKey(DISMISSED_TOURNAMENTS_KEY, sportKey))
   };
@@ -107,35 +124,46 @@ function activeSport() {
 }
 
 /**
- * The page was single-sport before, so the first round of dismissals and
- * aliases sits under unsuffixed keys. Move them under the soccer namespace
- * once rather than silently dropping the user's work.
+ * Earlier versions were single-sport and then single-book, so old dismissals
+ * sit under unsuffixed keys and old aliases under `superfetch.merkurAliases.*`.
+ * Move both rather than silently dropping the user's work.
  */
 function migrateLegacyStorage() {
-  for (const base of [ALIAS_STORAGE_KEY, DISMISSED_EVENTS_KEY, DISMISSED_TOURNAMENTS_KEY]) {
+  const moves = [
+    [DISMISSED_EVENTS_KEY, storageKey(DISMISSED_EVENTS_KEY, "soccer")],
+    [DISMISSED_TOURNAMENTS_KEY, storageKey(DISMISSED_TOURNAMENTS_KEY, "soccer")],
+    [LEGACY_ALIAS_KEY, storageKey(ALIAS_STORAGE_KEY, "merkur", "soccer")]
+  ];
+
+  for (const sport of COMPARISON_SPORTS) {
+    moves.push([
+      storageKey(LEGACY_ALIAS_KEY, sport.key),
+      storageKey(ALIAS_STORAGE_KEY, "merkur", sport.key)
+    ]);
+  }
+
+  for (const [from, to] of moves) {
     try {
-      const legacy = localStorage.getItem(base);
+      const legacy = localStorage.getItem(from);
 
       if (legacy === null) {
         continue;
       }
 
-      const target = storageKey(base, "soccer");
-
-      if (localStorage.getItem(target) === null) {
-        localStorage.setItem(target, legacy);
+      if (localStorage.getItem(to) === null) {
+        localStorage.setItem(to, legacy);
       }
 
-      localStorage.removeItem(base);
+      localStorage.removeItem(from);
     } catch (error) {
       console.error(error);
     }
   }
 }
 
-function loadStoredAliases(sportKey) {
+function loadStoredAliases(bookKey, sportKey) {
   try {
-    const raw = localStorage.getItem(storageKey(ALIAS_STORAGE_KEY, sportKey));
+    const raw = localStorage.getItem(storageKey(ALIAS_STORAGE_KEY, bookKey, sportKey));
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter((pair) => Array.isArray(pair) && pair.length === 2) : [];
   } catch (error) {
@@ -144,19 +172,19 @@ function loadStoredAliases(sportKey) {
   }
 }
 
-function saveStoredAliases() {
+function saveStoredAliases(bookKey) {
   try {
     localStorage.setItem(
-      storageKey(ALIAS_STORAGE_KEY, state.sportKey),
-      JSON.stringify(sportState().manualAliases)
+      storageKey(ALIAS_STORAGE_KEY, bookKey, state.sportKey),
+      JSON.stringify(sportState().books[bookKey].manualAliases)
     );
   } catch (error) {
     console.error(error);
   }
 }
 
-function allAliasPairs() {
-  return [...aliasPairsForSport(state.sportKey), ...sportState().manualAliases];
+function allAliasPairs(bookKey) {
+  return [...aliasPairsFor(bookKey, state.sportKey), ...sportState().books[bookKey].manualAliases];
 }
 
 function loadStoredIdSet(key) {
@@ -252,9 +280,24 @@ function superbetEventsForSport(sportKey = state.sportKey) {
   return state.allSuperbetEvents.filter((event) => event.sportId === sportId);
 }
 
+function fetchBookMatches(book, sport) {
+  const config = sport.books[book.key];
+
+  if (!config) {
+    return Promise.resolve([]);
+  }
+
+  if (book.key === "merkur") {
+    return fetchMerkurMatches(config.code, { womenFromLeague: config.womenFromLeague });
+  }
+
+  return fetchBalkanbetMatches(config.sportId, { womenFromLeague: config.womenFromLeague });
+}
+
 /**
- * Loads whatever the active sport still needs. The Superbet offer is fetched
- * once for all sports; `force` (the refresh button) refetches it too.
+ * Loads whatever the active sport still needs. Superbet's offer is fetched once
+ * for all sports; `force` (the refresh button) refetches it and drops
+ * Balkanbet's shared cache too.
  */
 async function loadOffers({ force = false } = {}) {
   if (state.loading) {
@@ -274,13 +317,17 @@ async function loadOffers({ force = false } = {}) {
   elements.reloadButton.disabled = true;
   renderEmpty("Ucitavanje...");
 
+  if (force) {
+    resetBalkanbetCache();
+  }
+
   try {
     const needsSuperbet = force || !state.superbetLoaded;
 
-    const [competitions, superbetEvents, merkurMatches] = await Promise.all([
+    const [competitions, superbetEvents, ...bookOffers] = await Promise.all([
       fetchCompetitions(sport.superbetSportId),
       needsSuperbet ? fetchAllPrematchEvents() : Promise.resolve(null),
-      fetchMerkurMatches(sport.merkurCode, { womenFromLeague: sport.womenFromLeague })
+      ...BOOKS.map((book) => fetchBookMatches(book, sport))
     ]);
 
     if (superbetEvents) {
@@ -289,11 +336,18 @@ async function loadOffers({ force = false } = {}) {
     }
 
     current.tournamentsById = buildTournamentLookup(competitions);
-    current.merkurMatches = merkurMatches;
+
+    BOOKS.forEach((book, index) => {
+      current.books[book.key].matches = bookOffers[index];
+    });
+
     current.loaded = true;
 
     pruneDismissedEvents();
-    setStatus(`${sport.label}: Superbet ${superbetEventsForSport().length} / Merkur ${merkurMatches.length}`);
+    setStatus([
+      `${sport.label}: SB ${superbetEventsForSport().length}`,
+      ...BOOKS.map((book) => `${book.short} ${current.books[book.key].matches.length}`)
+    ].join(" / "));
     recompute();
   } catch (error) {
     console.error(error);
@@ -330,33 +384,38 @@ function recompute() {
   }
 
   const preset = STRICTNESS_PRESETS[elements.strictness.value] ?? STRICTNESS_PRESETS.normal;
-  const result = compareOffers(superbetEvents, current.merkurMatches, {
-    threshold: preset.threshold,
-    timeToleranceMinutes: sport.timeToleranceMinutes,
-    aliasPairs: allAliasPairs()
-  });
+  const summary = [`Superbet: ${superbetEvents.length}`];
 
-  current.missing = result.missingOnMerkur
+  // Each competitor is reconciled against Superbet independently; the table
+  // then shows one row per Superbet fixture with a column per competitor.
+  for (const book of BOOKS) {
+    const bookState = current.books[book.key];
+    const result = compareOffers(superbetEvents, bookState.matches, {
+      threshold: preset.threshold,
+      timeToleranceMinutes: sport.timeToleranceMinutes,
+      aliasPairs: allAliasPairs(book.key)
+    });
+
+    bookState.pairedEventIds = new Set(result.pairs.map((pair) => pair.event.eventId));
+    bookState.orphans = result.missingOnSuperbet
+      .map((match) => ({
+        match,
+        suggestions: suggestPartners(match, result.missingOnMerkur, {
+          timeToleranceMinutes: sport.timeToleranceMinutes
+        }).filter((suggestion) => suggestion.score >= SUGGESTION_FLOOR)
+      }))
+      .sort((a, b) => (b.suggestions[0]?.score ?? 0) - (a.suggestions[0]?.score ?? 0));
+
+    summary.push(`${book.short}: ${bookState.matches.length}, nema ${result.missingOnMerkur.length}`);
+  }
+
+  current.rows = superbetEvents
     .map(decorateEvent)
     .sort((a, b) => a.kickoffMs - b.kickoffMs);
 
   // Kept as a base because renderList() re-renders the summary on its own
   // whenever a dismissal changes, without a full recompute.
-  current.summaryBase = [
-    `Superbet: ${superbetEvents.length}`,
-    `Merkur: ${current.merkurMatches.length}`,
-    `upareno: ${result.pairs.length}`,
-    `nedostaje na Merkuru: ${result.missingOnMerkur.length}`
-  ];
-
-  current.orphans = result.missingOnSuperbet
-    .map((match) => ({
-      match,
-      suggestions: suggestPartners(match, result.missingOnMerkur, {
-        timeToleranceMinutes: sport.timeToleranceMinutes
-      }).filter((suggestion) => suggestion.score >= SUGGESTION_FLOOR)
-    }))
-    .sort((a, b) => (b.suggestions[0]?.score ?? 0) - (a.suggestions[0]?.score ?? 0));
+  current.summaryBase = summary;
 
   renderList();
   renderOrphans();
@@ -364,11 +423,19 @@ function recompute() {
 }
 
 function decorateEvent(event) {
-  const tournament = sportState().tournamentsById.get(event.tournamentId);
+  const current = sportState();
+  const tournament = current.tournamentsById.get(event.tournamentId);
   const kickoffMs = eventKickoffMs(event);
+  const presence = {};
+
+  for (const book of BOOKS) {
+    presence[book.key] = current.books[book.key].pairedEventIds.has(event.eventId);
+  }
 
   return {
     event,
+    presence,
+    missingCount: BOOKS.filter((book) => !presence[book.key]).length,
     kickoffMs,
     dayKey: kickoffMs ? dayKeyFmt.format(new Date(kickoffMs)) : "",
     kickoffLabel: kickoffMs ? dateTimeFmt.format(new Date(kickoffMs)) : "-",
@@ -403,8 +470,19 @@ function applyFilters() {
   const to = elements.dateTo.value;
   const onlyWithOdds = elements.onlyWithOdds.checked;
   const showDismissed = elements.showDismissed.checked;
+  const presenceMode = elements.presence.value;
 
-  return sportState().missing.filter((row) => {
+  return sportState().rows.filter((row) => {
+    // "any" is the default: everything at least one competitor lacks. "all" is
+    // the stronger signal - nobody has it. "none" drops the filter entirely.
+    if (presenceMode === "any" && row.missingCount === 0) {
+      return false;
+    }
+
+    if (presenceMode === "all" && row.missingCount < BOOKS.length) {
+      return false;
+    }
+
     // Dismissed rows stay in `visible` while the review toggle is on so they
     // can be unchecked; `exportableRows()` drops them regardless.
     if (!showDismissed && isRowDismissed(row)) {
@@ -489,7 +567,7 @@ function renderList() {
     : "Nema rezultata";
 
   if (!current.visible.length) {
-    renderEmpty(current.missing.length ? "Nema meceva za zadate filtere" : "Nema razlika");
+    renderEmpty(current.rows.length ? "Nema meceva za zadate filtere" : "Nema razlika");
     return;
   }
 
@@ -571,14 +649,24 @@ function createTableHead() {
   dismissHeader.textContent = "-";
   row.append(dismissHeader);
 
-  for (const label of ["Vreme", "Mec", ...outcomeColumns()]) {
+  for (const label of ["Vreme", "Mec"]) {
     const cell = document.createElement("th");
     cell.textContent = label;
+    row.append(cell);
+  }
 
-    if (label.length === 1) {
-      cell.className = "col-numeric";
-    }
+  for (const book of BOOKS) {
+    const cell = document.createElement("th");
+    cell.className = "missing-book-col";
+    cell.textContent = book.short;
+    cell.title = book.label;
+    row.append(cell);
+  }
 
+  for (const label of outcomeColumns()) {
+    const cell = document.createElement("th");
+    cell.className = "col-numeric";
+    cell.textContent = label;
     row.append(cell);
   }
 
@@ -613,6 +701,15 @@ function createTableBody(rows) {
     match.textContent = `${row.event.homeTeam} - ${row.event.awayTeam}`;
 
     tr.append(time, match);
+
+    for (const book of BOOKS) {
+      const has = row.presence[book.key];
+      const cell = document.createElement("td");
+      cell.className = has ? "missing-book-col has-offer" : "missing-book-col no-offer";
+      cell.textContent = has ? "+" : "-";
+      cell.title = has ? `${book.label}: ima` : `${book.label}: nema`;
+      tr.append(cell);
+    }
 
     for (const price of rowPrices(row)) {
       const cell = document.createElement("td");
@@ -670,25 +767,27 @@ function renderEmpty(message) {
 
 function renderOrphans() {
   const current = sportState();
-
-  if (!current.orphans.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "Svi Merkur mecevi su upareni";
-    elements.orphansList.replaceChildren(empty);
-    return;
-  }
-
   const fragment = document.createDocumentFragment();
 
-  for (const orphan of current.orphans) {
-    fragment.append(createOrphanCard(orphan));
+  for (const book of BOOKS) {
+    const orphans = current.books[book.key].orphans;
+
+    const heading = document.createElement("div");
+    heading.className = "orphan-book-head";
+    heading.textContent = orphans.length
+      ? `${book.label} - ${orphans.length} bez para`
+      : `${book.label} - svi upareni`;
+    fragment.append(heading);
+
+    for (const orphan of orphans) {
+      fragment.append(createOrphanCard(book, orphan));
+    }
   }
 
   elements.orphansList.replaceChildren(fragment);
 }
 
-function createOrphanCard({ match, suggestions }) {
+function createOrphanCard(book, { match, suggestions }) {
   const card = document.createElement("section");
   card.className = "orphan-card";
 
@@ -715,13 +814,13 @@ function createOrphanCard({ match, suggestions }) {
   }
 
   for (const suggestion of suggestions) {
-    card.append(createSuggestionRow(match, suggestion));
+    card.append(createSuggestionRow(book, match, suggestion));
   }
 
   return card;
 }
 
-function createSuggestionRow(match, { event, score }) {
+function createSuggestionRow(book, match, { event, score }) {
   const row = document.createElement("div");
   row.className = "orphan-suggestion";
 
@@ -737,7 +836,7 @@ function createSuggestionRow(match, { event, score }) {
   link.className = "action-btn action-btn--secondary";
   link.type = "button";
   link.textContent = "Povezi";
-  link.addEventListener("click", () => linkFixture(match, event));
+  link.addEventListener("click", () => linkFixture(book, match, event));
 
   row.append(scoreChip, name, link);
   return row;
@@ -748,27 +847,34 @@ function createSuggestionRow(match, { event, score }) {
  * recomputes. Only the sides whose names actually differ are stored - adding an
  * alias for a pair that already matches would just bloat the exported table.
  */
-function linkFixture(match, event) {
+function linkFixture(book, match, event) {
   const candidates = [
     [match.home, event.homeTeam],
     [match.away, event.awayTeam]
   ];
 
-  const current = sportState();
+  const bookState = sportState().books[book.key];
+  const existing = allAliasPairs(book.key);
+  const aliasIndex = buildAliasIndex(existing);
+  const threshold = (STRICTNESS_PRESETS[elements.strictness.value] ?? STRICTNESS_PRESETS.normal).threshold;
   let added = 0;
 
-  for (const [merkurName, superbetName] of candidates) {
-    if (!merkurName || !superbetName) {
+  for (const [bookName, superbetName] of candidates) {
+    if (!bookName || !superbetName) {
       continue;
     }
 
-    const exists = allAliasPairs().some(([m, sb]) => m === merkurName && sb === superbetName);
-
-    if (exists) {
+    // Usually only one of the two sides is the problem; the other already
+    // matches on its own and would just bloat the exported table.
+    if (teamSimilarity(superbetName, bookName, aliasIndex) >= threshold) {
       continue;
     }
 
-    current.manualAliases.push([merkurName, superbetName]);
+    if (existing.some(([b, sb]) => b === bookName && sb === superbetName)) {
+      continue;
+    }
+
+    bookState.manualAliases.push([bookName, superbetName]);
     added += 1;
   }
 
@@ -777,13 +883,17 @@ function linkFixture(match, event) {
     return;
   }
 
-  saveStoredAliases();
+  saveStoredAliases(book.key);
   recompute();
   setActiveTab("orphans");
 }
 
+function manualAliasCount() {
+  return BOOKS.reduce((total, book) => total + sportState().books[book.key].manualAliases.length, 0);
+}
+
 function renderAliasStatus() {
-  const count = sportState().manualAliases.length;
+  const count = manualAliasCount();
   elements.aliasStatus.textContent = count
     ? `${count} rucnih aliasa (jos nisu u kodu)`
     : "Nema rucnih aliasa";
@@ -792,36 +902,46 @@ function renderAliasStatus() {
 }
 
 /**
- * Emits the manual aliases in the shape of a CLUB_ALIASES_BY_SPORT entry, so
- * they can be committed and stop depending on one browser's localStorage.
+ * Emits the manual aliases in the shape of a CLUB_ALIASES entry, so they can be
+ * committed and stop depending on one browser's localStorage.
  */
 function exportAliases() {
-  const lines = sportState().manualAliases
-    .map(([merkurName, superbetName]) => `    [${JSON.stringify(merkurName)}, ${JSON.stringify(superbetName)}],`);
+  const lines = [
+    "// Aliases confirmed in the Missing page. Merge these into CLUB_ALIASES in",
+    "// js/team_name_aliases.js, then clear them."
+  ];
 
-  const content = [
-    "// Aliases confirmed in the Missing page. Merge these into the matching",
-    "// CLUB_ALIASES_BY_SPORT entry in js/merkur_team_names.js, then clear them.",
-    `  ${state.sportKey}: [`,
-    ...lines,
-    "  ],",
-    ""
-  ].join("\n");
+  for (const book of BOOKS) {
+    const aliases = sportState().books[book.key].manualAliases;
 
-  const blob = new Blob([content], { type: "text/javascript;charset=utf-8" });
+    if (!aliases.length) {
+      continue;
+    }
+
+    lines.push(`  ${book.key}: {`, `    ${state.sportKey}: [`);
+    for (const [bookName, superbetName] of aliases) {
+      lines.push(`      [${JSON.stringify(bookName)}, ${JSON.stringify(superbetName)}],`);
+    }
+    lines.push("    ]", "  },");
+  }
+
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "text/javascript;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `merkur_aliases_${state.sportKey}.js`;
+  link.download = `team_aliases_${state.sportKey}.js`;
   link.click();
 
   URL.revokeObjectURL(url);
 }
 
 function clearAliases() {
-  sportState().manualAliases = [];
-  saveStoredAliases();
+  for (const book of BOOKS) {
+    sportState().books[book.key].manualAliases = [];
+    saveStoredAliases(book.key);
+  }
+
   recompute();
 }
 
@@ -867,7 +987,11 @@ function selectSport(sportKey) {
 }
 
 function buildExportText() {
-  const header = ["Vreme", "Zemlja", "Liga", "Domacin", "Gost", ...outcomeColumns()].join("\t");
+  const header = [
+    "Vreme", "Zemlja", "Liga", "Domacin", "Gost",
+    ...BOOKS.map((book) => book.short),
+    ...outcomeColumns()
+  ].join("\t");
 
   const lines = exportableRows().map((row) => [
     row.kickoffLabel,
@@ -875,6 +999,7 @@ function buildExportText() {
     row.tournamentName,
     row.event.homeTeam,
     row.event.awayTeam,
+    ...BOOKS.map((book) => (row.presence[book.key] ? "ima" : "nema")),
     ...rowPrices(row).map(formatPrice)
   ].join("\t"));
 
@@ -901,7 +1026,7 @@ function downloadList() {
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `superbet-bez-merkura-${state.sportKey}-${dayKeyFmt.format(new Date())}.tsv`;
+  link.download = `superbet-razlike-${state.sportKey}-${dayKeyFmt.format(new Date())}.tsv`;
   link.click();
 
   URL.revokeObjectURL(url);
@@ -913,6 +1038,7 @@ function wireEvents() {
   elements.copyButton.addEventListener("click", copyList);
   elements.downloadButton.addEventListener("click", downloadList);
   elements.strictness.addEventListener("change", recompute);
+  elements.presence.addEventListener("change", renderList);
   elements.search.addEventListener("input", renderList);
   elements.dateFrom.addEventListener("change", renderList);
   elements.dateTo.addEventListener("change", renderList);

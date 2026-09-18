@@ -22,7 +22,7 @@ This listens on port 5178 and must run alongside `python -m http.server 5177`. W
 
 ## Deployment
 
-`netlify.toml` sets `publish = "."` and rewrites `/sb-api/*` to the Superbet CDN, `/fpl-api/*` to the FPL API, and `/mx-api/*` to the Merkurxtip REST API. `js/config.js` detects `localhost`/`127.0.0.1`: for Superbet it uses the direct CDN URL locally (no CORS restriction there); for FPL it always routes through a proxy — `fpl_proxy.py` locally, `/fpl-api` in production — since the FPL CDN blocks CORS from any origin.
+`netlify.toml` sets `publish = "."` and rewrites `/sb-api/*` to the Superbet CDN, `/fpl-api/*` to the FPL API, `/mx-api/*` to the Merkurxtip REST API, and `/bb-api/*` to NSoft's distribution API (Balkanbet). `js/config.js` detects `localhost`/`127.0.0.1`: for Superbet it uses the direct CDN URL locally (no CORS restriction there); for FPL it always routes through a proxy — `fpl_proxy.py` locally, `/fpl-api` in production — since the FPL CDN blocks CORS from any origin.
 
 ## Architecture
 
@@ -44,9 +44,11 @@ Vanilla JS, no framework, no bundler. Six HTML pages, each a separate entry poin
 | `js/config.js` | API base URLs, locale, per-sport sport IDs — environment-aware. Imported only by `api.js`. |
 | `js/api.js` | All Superbet network calls and response normalization. `fetchSoccerCompetitions`/`fetchBasketballCompetitions`/`fetchTennisCompetitions` all funnel through a shared `fetchCompetitions(sportId)`. `fetchAllPrematchEventsForSport()` calls `/events/by-date` *without* `tournamentIds`, which returns the whole prematch offer across all sports in one request, then filters by `sportId` — used only by the offer-comparison page. |
 | `js/merkur_api.js` | Merkurxtip network calls. One request returns the entire prematch offer for a sport as a flat `esMatches` array (no competition tree — league name and country arrive per match). Only imported by `missing_main.js`. |
+| `js/balkanbet_api.js` | Balkanbet network calls, via NSoft's Seven distribution API. Two requests (`/events` for the whole offer, `/meta` for name lookups), cached module-level and sliced per sport. Only imported by `missing_main.js`. |
+| `js/books.js` | The competitor bookmaker registry and the women's-marker normalization both feeds need. |
 | `js/sports.js` | Registry of the sports the comparison page compares, with the per-sport matching knobs. Adding a sport is one entry here. |
 | `js/match_matcher.js` | Cross-book fixture reconciliation. Imported only by `missing_main.js`. |
-| `js/merkur_team_names.js` | Static `[merkurName, superbetName]` alias tuples for sides whose names share no letters: shared national teams plus per-sport club tables. Imported by `missing_main.js`, which passes them to the matcher. |
+| `js/team_name_aliases.js` | Static `[bookName, superbetName]` alias tuples for sides whose names share no letters: national teams shared by everything, plus club tables keyed by book then sport. Imported by `missing_main.js`, which passes them to the matcher. |
 | `js/ui.js` | DOM rendering, all UI state, component factories. **Single shared module across soccer/basketball/tennis**, not one per sport — sport-specific behavior is branched internally (e.g. `currentSportId === 4` for basketball's no-draws case, `isDefaultPlayerMarketBasketball`/`isDefaultPlayerMarketTennis`, `createPlayerGroupCardsBasketball`). |
 | `js/csv.js` | CSV generation, market name mapping, row manipulation — shared by soccer/basketball/tennis. **Not used by daily-specials**, which has its own CSV layer. |
 | `js/main.js` / `js/basketball_main.js` / `js/tennis_main.js` | Per-sport orchestrators — same shape (wire events, own the CSV string), each importing the same `ui.js`/`csv.js` surface plus a sport-specific competitions fetcher. |
@@ -77,7 +79,10 @@ Vanilla JS, no framework, no bundler. Six HTML pages, each a separate entry poin
 
 Lists fixtures that Superbet has in its prematch offer but Merkurxtip does not. Display + copy/download only — it does **not** go through `csv.js`.
 
-- **Feeds**: Superbet via `fetchAllPrematchEvents()` (one unfiltered `/events/by-date` call), Merkur via `fetchMerkurMatches(code)` (one `/custom/offer/sr/sport/<code>/mob?annex=0` call). Merkur sends `Access-Control-Allow-Origin: *`, so unlike FPL it needs no local proxy — the `/mx-api` rewrite exists only as a production fallback.
+Each competitor is reconciled against Superbet independently, and the table then shows **one row per Superbet fixture with a presence column per competitor** (`MX`, `BB`). The point of the column layout is that "nobody has this" is a far stronger signal than "one book lacks it", and both are visible at a glance. The `Prikazi` filter defaults to *nedostaje bar jednoj*; *nedostaje svima* is the stronger list.
+
+- **Feeds**: Superbet via `fetchAllPrematchEvents()` (one unfiltered `/events/by-date` call), Merkur via `fetchMerkurMatches(code)`, Balkanbet via `fetchBalkanbetMatches(sportId)`. All three need no local proxy — both competitors send `Access-Control-Allow-Origin: *` and need no auth, so the `/mx-api` and `/bb-api` rewrites exist only as production fallbacks.
+- **Balkanbet runs on NSoft's Seven platform**, so its offer comes from `sports-sm-distribution-api.de-2.nsoftcdn.com`, not from balkanbet.rs — and it loads in an iframe, so it is invisible in the parent page's network tab. Two calls cover it: `/events` (drop `filter[sportId]` and it returns all 26 sports at once, like Superbet's by-date) and `/meta` (sport/category/tournament names, since events carry only ids). `shortProps=1` abbreviates every key; the response ships a `_mapping` explaining them. Team names come from `competitors` rather than from splitting the event name: more abbreviated ("Boca J. 2"), but unambiguous, and measurably better — soccer 89% vs 87%, basketball 69% vs 64%, hockey 95% vs 94%.
 - **Tournament names**: the by-date payload carries `tournamentId`/`categoryId` but no names, so `missing_main.js` also fetches `fetchCompetitions(sportId)` purely to build an id→name lookup for grouping.
 - **The date filter defaults to today at both ends** (`applyDefaultDateRange()`), because Superbet lists fixtures months out — 652 soccer rows unfiltered against 80 for today. Only `to` does any work here; `from` cannot exclude anything, since a prematch feed holds no past fixtures. Switching sports keeps whatever dates the user set.
 
@@ -88,14 +93,17 @@ Lists fixtures that Superbet has in its prematch offer but Merkurxtip does not. 
 **Merkur's sport codes are easy to mistake**: `H` is ice hockey (KHL/VHL/DEL) and handball is `HB`. A wrong code does not error — the endpoint returns 200 with some other sport's offer, which then pairs at roughly zero.
 
 - **Superbet is fetched once for every sport.** `/events/by-date` without `tournamentIds` returns all sports in a single response, so the page caches it in `state.allSuperbetEvents` and filters by `sportId` per tab. Only the Merkur offer and the competition tree are per sport, and both load lazily on first visit to a tab. Do not "fix" this into a per-sport Superbet fetch.
-- **Per-sport state** lives in `state.bySport`; everything persisted is namespaced by sport key (`superfetch.dismissedTournaments.tennis`). `migrateLegacyStorage()` moves the pre-tabs unsuffixed keys under `soccer` — it can be deleted once no browser holds them.
-- **Club aliases are per sport, national teams are shared** (`CLUB_ALIASES_BY_SPORT` / `NATIONAL_TEAM_ALIASES`): a country is a country everywhere, but "Wolves" must not leak from football into another sport. How much a sport needs them varies a lot — hockey went from 88% to 97% on eleven entries, because Merkur names the *city* where Superbet names the club (`Cologne`/`Kolner Haie`, `Villacher`/`EC VSV`) and still lists relocated OHL franchises under their former city.
+- **Per-sport state** lives in `state.bySport`, with a per-book slice inside it. Dismissals are namespaced by sport alone (`superfetch.dismissedTournaments.tennis`), since "this does not belong in our offer" is a judgement about our offer rather than about a competitor; aliases are namespaced by book *and* sport (`superfetch.aliases.balkanbet.soccer`). `migrateLegacyStorage()` moves both the pre-tabs and the pre-Balkanbet key shapes — it can be deleted once no browser holds them.
+- **Club aliases are keyed by book then sport, national teams are shared** (`CLUB_ALIASES` / `NATIONAL_TEAM_ALIASES`). By book because a name is only ever wrong in the feed it came from; by sport because the same short name can mean different clubs in different sports — "Wolves" must not leak from football into hockey, and a country is a country everywhere. How much a sport needs them varies a lot — hockey went from 88% to 97% on eleven entries, because Merkur names the *city* where Superbet names the club (`Cologne`/`Kolner Haie`, `Villacher`/`EC VSV`) and still lists relocated OHL franchises under their former city.
 - `hasDraw` only picks the table columns — every sport's preselected Superbet market uses the same `1`/`X`/`2` outcome codes, so no per-sport market id is needed.
 
 ##### Two knobs that are genuinely per sport
 
 - **`timeToleranceMinutes`.** Tennis has no scheduled start: play begins when the previous match on that court ends, so the books' estimates drift over an hour (`T. Skatov - K. Samrej` was 80 minutes apart). Measured — tennis 15min: 86/132, 60min: 110/132, 180min: 112/132; basketball 15min: 32/38, 180min: 33/38; hockey flat at 89/97. A wide window buys team sports nothing and only risks pairing two different fixtures.
-- **`womenFromLeague`.** Merkur marks a women's competition in the *league* name and leaves team names alone (`Minnesota Lynx` in `WNBA`); Superbet marks the team (`Minnesota Lynx (Ž)`). For team sports `merkur_api.js` pushes the marker down onto the team names, or the matcher's women/men hard reject kills every such pair. **Individual sports must opt out**: Superbet marks none of its 187 tennis players, because a player's name identifies them outright — copying the marker down invented a mismatch and rejected 12 good pairs.
+- **`womenFromLeague`.** Superbet always marks the team (`Minnesota Lynx (Ž)`), and the matcher treats a women/men mismatch as a hard reject, so an unmarked competitor name kills the pair. The competitors disagree about where the marker lives, which is why `books.js` pushes it down from the league name onto the team names:
+  - **Merkur suffixes the team itself** (`Rio Ave W`), so `applyWomenMarker()` is usually a no-op. Its one exception is the WNBA, which it sends unmarked — that is what the league path is there for.
+  - **Balkanbet never suffixes**: not one of its 131 women's fixtures carries a marker on the team, so for it the league name is the *only* signal and a gap in `WOMEN_LEAGUE` silently breaks every pair in that competition. The pattern has already had to grow twice, for `NWSL` (`wsl` cannot match inside it) and for `Women’s Super League` (U+2019 apostrophe, not ASCII). Both were invisible on Merkur because its team names carried `W` anyway — when changing this pattern, validate against **Balkanbet's** league list, not Merkur's.
+  - **Individual sports must opt out**: Superbet marks none of its 187 tennis players, because a player's name identifies them outright — copying the marker down invented a mismatch and rejected 12 good pairs.
 - **No shared match id.** Merkur exposes `brMatchId` (Betradar); Superbet exposes nothing comparable. `match_matcher.js` therefore pairs on **kickoff time (per-sport tolerance, bucketed per minute) + fuzzy team-name similarity**, assigned greedily best-first so each fixture claims its strongest partner.
 - **Name normalization** (`normalizeTeamName()`) splits a team name into `core` tokens and `flags`. Flags are the markers that change *which* team it is — `w` (women: Superbet writes `Arsenal (Ž)`, Merkur writes `Arsenal W`), `b` (reserves: `II`/`2`/`B`/`(R)`/`(Am)`), and `uNN` age groups. A women/men flag mismatch hard-rejects the pair; a reserve/age mismatch only softens the score. Core tokens drop legal-form noise (`fc`, `fk`, `sc`, …) and run through a small alias table (`utd→united`, `wien→vienna`, `prof→professional`, …).
 - **Core similarity is a directional max, not an average** — one book routinely carries extra words (`Hougang` vs `Hougang United`), and abbreviation prefixes are the dominant failure mode (`Ch. Odessa` / `Chernomorets Odesa`), so a prefix match scores 0.95 and everything else falls back to a Dice bigram coefficient.
@@ -111,12 +119,13 @@ Fuzzy similarity handles spelling drift but cannot bridge names that share no le
 - Entries are written **ASCII-only** (`Slovacka`, not `Slovačka`). `normalizeTeamName()` strips diacritics before comparing, so this costs nothing and keeps the file free of the encoding artifacts described under "Encoding note".
 - Aliases confirmed in the UI are appended from localStorage (`superfetch.merkurAliases`); "Izvezi aliase" emits them in `CLUB_ALIASES` shape to be merged into the static table.
 
-#### Two false-women traps
+#### The two women's markers, and the traps in each
 
-Both were live bugs, so do not "simplify" these back:
+Superbet writes `(Ž)`, the competitors suffix a standalone `W`. Both spellings collide with ordinary abbreviations, so both are narrowly anchored on purpose — do not "simplify" these back:
 
-- `(Ž)` is Superbet's women's marker, but after diacritic-stripping it becomes a bare `z` — which is equally often an abbreviated first word (`Gornik Z.` = Zabrze, `Z. Moravce` = Zlate Moravce). The marker is therefore matched **parenthesized, before punctuation is stripped**, not as a token.
-- Merkur's women's marker is a trailing `W` token, but it also abbreviates name tails the same way (`Havant & W` = Waterlooville). An `&` anywhere in the name disables the `w` marker.
+- `(Ž)` becomes a bare `z` once diacritics are stripped, and a bare `z` is just as often an abbreviated first word (`Gornik Z.` = Zabrze, `Z. Moravce` = Zlate Moravce). It is therefore matched **parenthesized, before punctuation is stripped**, never as a token.
+- The `W` suffix is matched **only as the last token**. Across Merkur's 2485 team names a bare `w` appears in no other position, so anchoring to the end costs nothing and keeps a club like `W Connection` from reading as a women's side.
+- The one real exception is an abbreviated tail: `Havant & W` is Waterlooville. Only a `w` **directly after an `&`** is exempt — an earlier version disabled the marker for any name containing `&`, which would have silently unmarked the women's side of such a club.
 
 #### Dismissing what should not be in the offer
 
@@ -133,7 +142,7 @@ A row and a league header each carry a checkbox meaning "this does not belong in
 The audit surface is the **Merkur-only list (~75 rows), not the ~640 missing ones** — a fixture the matcher wrongly reports as missing must leave its Merkur counterpart unpaired, so every failure shows up there.
 
 - `suggestPartners()` ranks still-unpaired Superbet events against one Merkur orphan. It is deliberately **much more permissive** than `fixtureSimilarity()` — no women/men hard reject, no token floor — because its whole job is to surface pairs the matcher threw away. Its scores are a sort order for a human, never grounds to pair automatically.
-- "Povezi" stores the differing name pairs as aliases and recomputes; it does not pin the two fixture ids together, since an alias also fixes every future round.
+- "Povezi" stores the differing name pairs as aliases for *that* book and recomputes; it does not pin the two fixture ids together, since an alias also fixes every future round. It skips a side that already pairs on its own (checked with `teamSimilarity` against the live threshold) — usually only one of the two names is the problem, and storing the other would just bloat the exported table.
 - Most orphans are genuinely Merkur-only: women's leagues Superbet does not carry, plus Merkur's synthetic "Zamišljeni mečevi".
 
 ### FPL API proxy (local dev only)

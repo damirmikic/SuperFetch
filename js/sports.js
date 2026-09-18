@@ -17,8 +17,11 @@
  * A wide window buys the team sports nothing and only risks pairing two
  * different fixtures, hence the per-sport value.
  *
- * `womenFromLeague` - whether to push Merkur's league-level women's marker down
- * onto the team names. In team sports the same club fields a men's and a
+ * `books` - the per-competitor identifiers and knobs. Merkur addresses a sport
+ * by a letter code, Balkanbet by a numeric id.
+ *
+ * `womenFromLeague` - whether to push a competitor's league-level women's
+ * marker down onto the team names. In team sports the same club fields a men's and a
  * women's side, so both books mark them and the marker must line up: Superbet
  * writes "Minnesota Lynx (Z)" where Merkur writes "Minnesota Lynx" in "WNBA".
  * In individual sports a name identifies the person outright - Superbet marks
@@ -29,13 +32,13 @@
  * preselected Superbet market uses the same "1"/"X"/"2" outcome codes, so no
  * per-sport market id is needed.
  *
- * Verified but not enabled (pairing rate against a full day's offer, using
- * these same defaults - add an entry to switch one on):
+ * Verified but not enabled (Merkur pairing rate against a full day's offer,
+ * using these same defaults - add an entry to switch one on):
  *
- *     rugby      merkur "R"   superbet 8    90%   hasDraw, team
- *     volleyball merkur "V"   superbet 1     -    no draw, team
- *     water polo merkur "W"   superbet 15  100%   hasDraw, team
- *     darts      merkur "D"   superbet 13  100%   no draw, individual
+ *     rugby      merkur "R"   superbet 8   balkanbet 51    90%   hasDraw, team
+ *     volleyball merkur "V"   superbet 1   balkanbet 30     -    no draw, team
+ *     water polo merkur "W"   superbet 15  balkanbet 63   100%   hasDraw, team
+ *     darts      merkur "D"   superbet 13  balkanbet 72   100%   no draw, individual
  *
  * Bandy (merkur "BA", 4 matches) has no identifiable Superbet sportId.
  *
@@ -49,46 +52,56 @@ export const COMPARISON_SPORTS = [
     key: "soccer",
     label: "Fudbal",
     superbetSportId: 5,
-    merkurCode: "S",
     hasDraw: true,
-    womenFromLeague: true,
-    timeToleranceMinutes: 15
+    timeToleranceMinutes: 15,
+    books: {
+      merkur: { code: "S", womenFromLeague: true },
+      balkanbet: { sportId: 18, womenFromLeague: true }
+    }
   },
   {
     key: "basketball",
     label: "Kosarka",
     superbetSportId: 4,
-    merkurCode: "B",
     hasDraw: false,
-    womenFromLeague: true,
-    timeToleranceMinutes: 15
+    timeToleranceMinutes: 15,
+    books: {
+      merkur: { code: "B", womenFromLeague: true },
+      balkanbet: { sportId: 36, womenFromLeague: true }
+    }
   },
   {
     key: "handball",
     label: "Rukomet",
     superbetSportId: 11,
-    merkurCode: "HB",
     hasDraw: true,
-    womenFromLeague: true,
-    timeToleranceMinutes: 15
+    timeToleranceMinutes: 15,
+    books: {
+      merkur: { code: "HB", womenFromLeague: true },
+      balkanbet: { sportId: 24, womenFromLeague: true }
+    }
   },
   {
     key: "hockey",
     label: "Hokej",
     superbetSportId: 3,
-    merkurCode: "H",
     hasDraw: true,
-    womenFromLeague: true,
-    timeToleranceMinutes: 15
+    timeToleranceMinutes: 15,
+    books: {
+      merkur: { code: "H", womenFromLeague: true },
+      balkanbet: { sportId: 21, womenFromLeague: true }
+    }
   },
   {
     key: "tennis",
     label: "Tenis",
     superbetSportId: 2,
-    merkurCode: "T",
     hasDraw: false,
-    womenFromLeague: false,
-    timeToleranceMinutes: 180
+    timeToleranceMinutes: 180,
+    books: {
+      merkur: { code: "T", womenFromLeague: false },
+      balkanbet: { sportId: 78, womenFromLeague: false }
+    }
   }
 ];
 

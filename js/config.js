@@ -23,6 +23,20 @@ export const MERKUR_CONFIG = {
   locale: "sr"
 };
 
+export const BALKANBET_CONFIG = {
+  // Balkanbet runs on NSoft's Seven platform, so the offer lives on NSoft's
+  // distribution API rather than on balkanbet.rs. It sends
+  // Access-Control-Allow-Origin: * and needs no auth, so the browser can hit it
+  // directly; the production rewrite is only a fallback if that ever changes.
+  baseUrl: isLocal
+    ? "https://sports-sm-distribution-api.de-2.nsoftcdn.com/api/v1"
+    : "/bb-api",
+  // Balkanbet's tenant on the Seven platform - every call is scoped to it.
+  companyUuid: "4f54c6aa-82a9-475d-bf0e-dc02ded89225",
+  locale: "sr-Latn",
+  timezone: "Europe/Belgrade"
+};
+
 export const FPL_CONFIG = {
   baseUrl: isLocal
     ? "http://127.0.0.1:5178"

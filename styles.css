@@ -2652,3 +2652,39 @@ optgroup {
 .sport-tabs .market-tab {
   font-weight: 700;
 }
+
+.missing-table th.missing-book-col,
+.missing-table td.missing-book-col {
+  width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.missing-table td.missing-book-col {
+  font-weight: 800;
+}
+
+.missing-table td.has-offer {
+  color: var(--text-3);
+}
+
+.missing-table td.no-offer {
+  color: var(--red);
+}
+
+.missing-table tr.is-dismissed td.missing-book-col {
+  color: var(--text-3);
+}
+
+.orphan-book-head {
+  margin: 14px 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.orphan-book-head:first-child {
+  margin-top: 0;
+}

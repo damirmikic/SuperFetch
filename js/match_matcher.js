@@ -32,7 +32,7 @@ const TOKEN_ALIASES = new Map(Object.entries({
   zene: "w"
 }));
 
-// Superbet marks women's teams with a parenthesized "(Z)" (originally "(Ž)").
+// Superbet marks women's teams with a parenthesized "(Z)" (originally the Serbian \u017d).
 // This has to be caught before punctuation is stripped, because a bare "z"
 // token is just as often an abbreviated first word ("Gornik Z." = Zabrze).
 const WOMEN_MARKER = /\(\s*[zw]\s*\)/g;
@@ -92,13 +92,21 @@ export function normalizeTeamName(name) {
   const isWomen = WOMEN_MARKER.test(ascii);
   WOMEN_MARKER.lastIndex = 0;
 
-  // Merkur abbreviates the tail of a name to its initial ("Havant & W" =
-  // Waterlooville), which is indistinguishable from its women's marker. An
-  // ampersand means the "W" is an abbreviation, not a marker.
-  const ampersand = ascii.includes("&");
-
   const cleaned = ascii.replace(WOMEN_MARKER, " ").replace(/[^a-z0-9]+/g, " ").trim();
   const rawTokens = cleaned ? cleaned.split(" ") : [];
+  const tokens = rawTokens.map((rawToken) => TOKEN_ALIASES.get(rawToken) ?? rawToken);
+
+  // The competitors mark a women's side by *suffixing* the team name with a
+  // standalone "W" ("Arsenal W"). Across Merkur's 2485 team names a bare "w"
+  // appears nowhere else - never leading, never medial - so anchoring to the
+  // last token costs nothing and stops a club like "W Connection" from reading
+  // as a women's side.
+  //
+  // The one exception is an abbreviated tail: "Havant & W" is Waterlooville,
+  // not a women's team. Only a "w" straight after an ampersand is exempt, so a
+  // genuine women's side of a club with "&" in its name still registers.
+  const lastIndex = tokens.length - 1;
+  const womenSuffix = tokens[lastIndex] === "w" && !/&\s*w\s*$/.test(ascii);
 
   const core = [];
   const flags = new Set();
@@ -107,10 +115,10 @@ export function normalizeTeamName(name) {
     flags.add("w");
   }
 
-  for (const rawToken of rawTokens) {
-    const token = TOKEN_ALIASES.get(rawToken) ?? rawToken;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
 
-    if (token === "w" && !ampersand) {
+    if (token === "w" && index === lastIndex && womenSuffix) {
       flags.add("w");
       continue;
     }
