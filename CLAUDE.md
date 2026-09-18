@@ -83,7 +83,9 @@ Lists fixtures that Superbet has in its prematch offer but Merkurxtip does not. 
 
 #### Sport tabs
 
-`sports.js` is the registry; adding a sport is one entry there and nothing else in the flow is sport-specific. Per-sport pairing rates against a full day's offer: soccer 93%, basketball 92%, tennis 86%.
+`sports.js` is the registry; adding a sport is one entry there and nothing else in the flow is sport-specific. Per-sport pairing rates against a full day's offer: soccer 93%, basketball 92%, handball 93%, tennis 86%.
+
+**Merkur's sport codes are easy to mistake**: `H` is ice hockey (KHL/VHL/DEL) and handball is `HB`. A wrong code does not error — the endpoint returns 200 with some other sport's offer, which then pairs at roughly zero.
 
 - **Superbet is fetched once for every sport.** `/events/by-date` without `tournamentIds` returns all sports in a single response, so the page caches it in `state.allSuperbetEvents` and filters by `sportId` per tab. Only the Merkur offer and the competition tree are per sport, and both load lazily on first visit to a tab. Do not "fix" this into a per-sport Superbet fetch.
 - **Per-sport state** lives in `state.bySport`; everything persisted is namespaced by sport key (`superfetch.dismissedTournaments.tennis`). `migrateLegacyStorage()` moves the pre-tabs unsuffixed keys under `soccer` — it can be deleted once no browser holds them.

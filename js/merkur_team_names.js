@@ -149,6 +149,10 @@ export const CLUB_ALIASES_BY_SPORT = {
     ["Wolves", "Wolverhampton"]
   ],
   basketball: [],
+  handball: [
+    ["DRHV 06", "Dessau-Rosslauer"],
+    ["Hoej Elite", "HOJ"]
+  ],
   tennis: []
 };
 

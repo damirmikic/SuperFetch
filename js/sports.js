@@ -34,12 +34,15 @@
  *
  *     hockey     merkur "H"   superbet 3    92%   hasDraw, team
  *     rugby      merkur "R"   superbet 8    90%   hasDraw, team
- *     handball   merkur "HB"  superbet 11   85%   hasDraw, team
  *     volleyball merkur "V"   superbet 1     -    no draw, team
  *     water polo merkur "W"   superbet 15  100%   hasDraw, team
  *     darts      merkur "D"   superbet 13  100%   no draw, individual
  *
  * Bandy (merkur "BA", 4 matches) has no identifiable Superbet sportId.
+ *
+ * Careful with the Merkur codes: "H" is ice hockey (KHL/VHL/DEL) and handball
+ * is "HB". They are easy to swap, and neither errors - an unknown or wrong code
+ * just returns a different sport's offer, which then pairs at roughly zero.
  */
 
 export const COMPARISON_SPORTS = [
@@ -58,6 +61,15 @@ export const COMPARISON_SPORTS = [
     superbetSportId: 4,
     merkurCode: "B",
     hasDraw: false,
+    womenFromLeague: true,
+    timeToleranceMinutes: 15
+  },
+  {
+    key: "handball",
+    label: "Rukomet",
+    superbetSportId: 11,
+    merkurCode: "HB",
+    hasDraw: true,
     womenFromLeague: true,
     timeToleranceMinutes: 15
   },
