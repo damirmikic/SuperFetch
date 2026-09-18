@@ -153,6 +153,22 @@ export const CLUB_ALIASES_BY_SPORT = {
     ["DRHV 06", "Dessau-Rosslauer"],
     ["Hoej Elite", "HOJ"]
   ],
+  // Hockey diverges systematically: Merkur names the city, Superbet the club.
+  // The last three are OHL franchises that relocated and which Merkur still
+  // lists under their former city.
+  hockey: [
+    ["Cologne", "Kolner Haie"],
+    ["Debreceni", "DEAC"],
+    ["FTC-Telekom", "Ferencvaros"],
+    ["Krakow", "Cracovia"],
+    ["Langnau", "Langenau Tigers"],
+    ["Steinbach BW", "Black Wings Linz"],
+    ["Villacher", "EC VSV"],
+    ["Zurich", "ZSC Lions"],
+    ["Hamilton", "Brantford Bulldogs"],
+    ["Marie", "Soo Greyhounds"],
+    ["Mississauga", "Brampton Steelheads"]
+  ],
   tennis: []
 };
 

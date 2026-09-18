@@ -32,7 +32,6 @@
  * Verified but not enabled (pairing rate against a full day's offer, using
  * these same defaults - add an entry to switch one on):
  *
- *     hockey     merkur "H"   superbet 3    92%   hasDraw, team
  *     rugby      merkur "R"   superbet 8    90%   hasDraw, team
  *     volleyball merkur "V"   superbet 1     -    no draw, team
  *     water polo merkur "W"   superbet 15  100%   hasDraw, team
@@ -69,6 +68,15 @@ export const COMPARISON_SPORTS = [
     label: "Rukomet",
     superbetSportId: 11,
     merkurCode: "HB",
+    hasDraw: true,
+    womenFromLeague: true,
+    timeToleranceMinutes: 15
+  },
+  {
+    key: "hockey",
+    label: "Hokej",
+    superbetSportId: 3,
+    merkurCode: "H",
     hasDraw: true,
     womenFromLeague: true,
     timeToleranceMinutes: 15
