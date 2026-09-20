@@ -956,6 +956,12 @@ const TENNIS_STATISTIKA_KEYWORDS = [
   "asov", "asev", "dupl", "brejk", "poen", "servis"
 ];
 
+// Pre-normalized versions — computed once at module load so isStatistikaMarket
+// does not call normalizeSearchText(kw) on every invocation.
+const STATISTIKA_KEYWORDS_NORM = STATISTIKA_KEYWORDS.map(normalizeSearchText);
+const BASKETBALL_STATISTIKA_KEYWORDS_NORM = BASKETBALL_STATISTIKA_KEYWORDS.map(normalizeSearchText);
+const TENNIS_STATISTIKA_KEYWORDS_NORM = TENNIS_STATISTIKA_KEYWORDS.map(normalizeSearchText);
+
 /**
  * Returns true if the market name matches a team-level statistika keyword.
  * Player-prop markets that incidentally contain "šut" or "faul" etc. are excluded
@@ -965,11 +971,11 @@ function isStatistikaMarket(marketName) {
   const norm = normalizeSearchText(marketName);
   if (norm.includes("igrac")) return false;
   const keywords = currentSportId === 4
-    ? BASKETBALL_STATISTIKA_KEYWORDS
+    ? BASKETBALL_STATISTIKA_KEYWORDS_NORM
     : currentSportId === 2
-      ? TENNIS_STATISTIKA_KEYWORDS
-      : STATISTIKA_KEYWORDS;
-  return keywords.some((kw) => norm.includes(normalizeSearchText(kw)));
+      ? TENNIS_STATISTIKA_KEYWORDS_NORM
+      : STATISTIKA_KEYWORDS_NORM;
+  return keywords.some((kw) => norm.includes(kw));
 }
 
 function isSplitStatistikaMarket(market, isStatistika) {
