@@ -1956,6 +1956,7 @@ const DEFAULT_MARKET_BASES = [
   "{away} ukupno ofsajda",
   "Ukupno odbrana golmana",
   "Ukupno dosuđenih penala",
+  "Gol glavom",
 ];
 
 const DEFAULT_OU_MARKET_RULES = new Map([
@@ -2204,30 +2205,39 @@ export function addDefaultStatistikaMarkets() {
     }
   }
 
-  // ── Synthetic "Gol glavom" market (soccer only) ───────────────────────────
-  // Derived from Dixon-Coles xG × league-specific headed goal rate → Poisson P(≥1)
+  // ── Synthetic "Gol glavom" market (soccer only, fallback) ────────────────
+  // Only fires when Superbet does NOT have a real "Gol glavom" market in the
+  // feed for this event (the real one is handled above via DEFAULT_MARKET_BASES).
+  // Derived from Dixon-Coles xG × league-specific headed goal rate → Poisson P(≥1).
   if (currentSportId === 5) {
-    const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
-    if (xgResult.ok) {
-      const comp = getSelectedCompetition();
-      const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
-      const headed = calculateHeadedGoalMarket(xgResult, leagueName);
-      if (headed) {
-        const specKey = "gol glavom";
-        if (!host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) {
-          const btn = document.createElement("button");
-          btn.className = "add-odd-button add-odd-button--inline";
-          btn.dataset.specKey = specKey;
-          btn.dataset.marketType = "outright";
-          host.appendChild(btn);
-          document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
-            detail: {
-              marketName: headed.marketName,
-              odd: { name: "Da", price: headed.yesOdds * 0.9 }, // built-in 10% margin
-              button: btn,
-              isCombo: false
-            }
-          }));
+    const cleanGolGlavom = "golglavom";
+    const hasRealMarket = currentMarkets.some(
+      (m) => normalizeSearchText(m.marketName).replace(/[^a-z0-9]/g, "") === cleanGolGlavom
+    );
+
+    if (!hasRealMarket) {
+      const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
+      if (xgResult.ok) {
+        const comp = getSelectedCompetition();
+        const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
+        const headed = calculateHeadedGoalMarket(xgResult, leagueName);
+        if (headed) {
+          const specKey = "gol glavom";
+          if (!host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) {
+            const btn = document.createElement("button");
+            btn.className = "add-odd-button add-odd-button--inline";
+            btn.dataset.specKey = specKey;
+            btn.dataset.marketType = "outright";
+            host.appendChild(btn);
+            document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
+              detail: {
+                marketName: headed.marketName,
+                odd: { name: "Da", price: headed.yesOdds * 0.9 }, // built-in 10% margin
+                button: btn,
+                isCombo: false
+              }
+            }));
+          }
         }
       }
     }
