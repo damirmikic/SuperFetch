@@ -247,8 +247,28 @@ function normalizeMarkets(odds) {
 function extractOddPlayerInfo(odd) {
   const specifiers = odd.specifiers ?? {};
 
+  // First pass: prefer explicit player_name key (Superbet sends both player_id and player_name
+  // for shot/stat markets — player_id is a raw Betradar URI like "sr:player:123" and must be
+  // skipped; player_name holds the actual display name).
+  for (const [key, value] of Object.entries(specifiers)) {
+    if (key !== "player_name" || !value) {
+      continue;
+    }
+
+    return {
+      name: cleanDisplayText(value),
+      team: extractTeamSideFromOdd(odd)
+    };
+  }
+
+  // Second pass: other player-bearing keys (e.g. ss_player_h_shots_over_pm_0)
   for (const [key, value] of Object.entries(specifiers)) {
     if (!String(key).includes("player") || !value) {
+      continue;
+    }
+
+    // Skip raw ID keys — their values are Betradar URIs like "sr:player:123", not names.
+    if (key === "player_id" || String(value).includes(":")) {
       continue;
     }
 
