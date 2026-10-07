@@ -10,7 +10,7 @@ No build step, no package manager, no test suite. ES modules require HTTP — op
 python -m http.server 5177
 ```
 
-Open `http://127.0.0.1:5177/index.html` (soccer), `/basketball.html`, `/tennis.html`, `/daily-specials.html`, `/fantasy.html`, or `/missing.html`. CORS is only an issue on non-localhost origins for the Superbet API; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
+Open `http://127.0.0.1:5177/index.html` (soccer), `/basketball.html`, `/tennis.html`, `/handball.html`, `/daily-specials.html`, `/fantasy.html`, or `/missing.html`. CORS is only an issue on non-localhost origins for the Superbet API; `netlify.toml` proxies `/sb-api/*` → Superbet CDN for production.
 
 `fantasy.html` additionally needs the FPL API proxy running, since `fantasy.premierleague.com` blocks CORS unconditionally (unlike the Superbet CDN, which allows direct localhost access):
 
@@ -26,7 +26,7 @@ This listens on port 5178 and must run alongside `python -m http.server 5177`. W
 
 ## Architecture
 
-Vanilla JS, no framework, no bundler. Six HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
+Vanilla JS, no framework, no bundler. Seven HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
 
 | Page | Entry module | Sport |
 |---|---|---|
@@ -36,6 +36,7 @@ Vanilla JS, no framework, no bundler. Six HTML pages, each a separate entry poin
 | `daily-specials.html` | `js/daily_specials_main.js` | Soccer (synthetic markets) |
 | `fantasy.html` | `js/fantasy_main.js` | Soccer (EPL fantasy points, synthetic) |
 | `missing.html` | `js/missing_main.js` | Soccer / basketball / tennis (Superbet vs Merkurxtip offer diff) |
+| `handball.html` | `js/handball_main.js` | Handball (SuperSport.hr player goal lines) |
 
 ### Shared modules
 
@@ -57,6 +58,8 @@ Vanilla JS, no framework, no bundler. Six HTML pages, each a separate entry poin
 | `js/basketball_early_markets.js` | Synthetic basketball "1. min" markets (3+/4+/5+ poena, oba tima daju koš). Finds the balanced line in Superbet's `Ukupno poena (uklj. produžetke)` (Over/Under closest to even), then reads empirical EuroLeague curves at `60s × line / 170.15` — scoring pace scales with the total. 8% margin, "Da" leg only. Consumed by `ui.js`, rendered as custom cards on the basketball Specijali tab. |
 | `js/world_cup_team_names.js` | Static team-name alias/normalization table. Only imported by `daily_specials_main.js`, to reconcile feed spellings against World Cup grouping data. |
 | `js/epl_team_names.js` | Static team-name alias/normalization table for the English Premier League (odds-feed spelling → FPL API spelling). Only imported by `fantasy_model.js`. |
+| `js/handball_player_teams.js` | Handball player → team table, **generated** by `build_handball_teams.py` from `handball roster.xlsx` (col A player, col B team, no header). Re-run the script after editing the sheet; don't hand-edit. Only imported by `handball_main.js`. |
+| `js/supersport_api.js` | SuperSport.hr WebSocket client. Only imported by `handball_main.js`. See "Handball player lines" below. |
 | `js/fpl_api.js` | Fetches and caches the FPL `bootstrap-static` endpoint (`fetchFplData()`), normalizing it to `{ players, teamsById }`. Only imported by `fantasy_main.js`. Uses `FPL_CONFIG` from `config.js`, not `SUPERBET_CONFIG`. |
 
 ### Daily Specials (separate subsystem)
@@ -145,6 +148,16 @@ The audit surface is the **Merkur-only list (~75 rows), not the ~640 missing one
 - `suggestPartners()` ranks still-unpaired Superbet events against one Merkur orphan. It is deliberately **much more permissive** than `fixtureSimilarity()` — no women/men hard reject, no token floor — because its whole job is to surface pairs the matcher threw away. Its scores are a sort order for a human, never grounds to pair automatically.
 - "Povezi" stores the differing name pairs as aliases for *that* book and recomputes; it does not pin the two fixture ids together, since an alias also fixes every future round. It skips a side that already pairs on its own (checked with `teamSimilarity` against the live threshold) — usually only one of the two names is the problem, and storing the other would just bloat the exported table.
 - Most orphans are genuinely Merkur-only: women's leagues Superbet does not carry, plus Merkur's synthetic "Zamišljeni mečevi".
+
+### Handball player lines: SuperSport.hr (`handball.html` / `js/handball_main.js`)
+
+Lists every handball fixture SuperSport prices player goal lines for (market `1098 zbroj golova igrača`) and builds a CSV from them: one `MATCH_NAME:golovi igraca` header, `LEAGUE_NAME:<team>` per team, then one row per line with the player in `Domacin`, `broj golova` in `Gost`, the line in `GR`, `manje` in `U` and `više` in `O`. It does not go through `csv.js`'s row builders (it only borrows `CSV_COLUMNS`, `makeCsvFilename`, `toAsciiMarketName`).
+
+- **The feed is a pub/sub WebSocket** (`wss://www.supersport.hr/api/sbk`), not REST. Subscribe with `{"t":1,"u":[{"s":"<topic>","n":0}]}`; replies are a JSON header line (`s` topic, `f:1` full snapshot) plus a JSON body line with abbreviated keys (legend in `supersport_api.js`). The server does not check `Origin`, so the browser connects directly — and Netlify cannot proxy a WebSocket, so there is no production rewrite.
+- **Topics**: `i_hr` is the whole offer tree but player lines arrive as empty `{}`; `t_<tournamentId>_hr` has every line filled in. The fixture topic is `f_f<id>_hr` (the `f` is part of the id) and also leaves player lines empty — use the tournament topic.
+- **One topic per connection.** Batching several topics on one socket makes the server silently skip some (14–15 of 20 came back batched, all 20 one-per-socket). `supersport_api.js` therefore opens a short-lived socket per tournament, 4 at a time; a full load takes about a second. Do not "optimise" this back into one connection.
+- **The feed has no player→team link** — line names are just `zbroj golova Vlah Aleks (5.5)`. The UI makes the user pick `+ Dom` / `+ Gost` per player, which sets the team's `LEAGUE_NAME` block. Names come surname-first and are editable in the table before export. Links are remembered: `js/handball_player_teams.js` (generated from the roster sheet) is searched **only among the two teams of the fixture**, which is what makes loose matching safe — word order and diacritics ignored (`Aleks Vlah` = `Vlah Aleks`; `þ/ð/æ/ø/ł/ß` folded explicitly, NFD leaves them whole), and failing an exact word match, a unique subset match of 2+ words (`Gisli Kristjansson` ⊂ `Kristjansson Gisli Thorgeir`). Transliteration differences (`Korolek Artem` / `Artsem Karalek`) are not bridged. Clicks are learned into localStorage (`superfetch.handballPlayerTeams`, wins over the file); the known side's button is highlighted and "Dodaj poznate" adds them all. Teams match when every word of the shorter name is in the longer (`Kielce` covers `Vive Kielce`); `TEAM_RENAMES` in the script handles names sharing no words (`Dinamo Bucarest` → `Bukurest`).
+- Player lines sit on a separate offer (producer 4, id `4m…`) next to the main `1m…` one, and only a handful of fixtures carry them (Champions League, typically 6–8 players per match).
 
 ### FPL API proxy (local dev only)
 

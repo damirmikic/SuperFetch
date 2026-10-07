@@ -2692,3 +2692,31 @@ optgroup {
 .orphan-book-head:first-child {
   margin-top: 0;
 }
+
+/* Handball player lines (SuperSport) */
+.handball-team-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.handball-team-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.handball-team-btn.is-added {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.handball-team-btn.is-suggested {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--accent);
+}
+
+.handball-toolbar {
+  margin-bottom: 10px;
+}

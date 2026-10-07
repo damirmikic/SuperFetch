@@ -42,3 +42,12 @@ export const FPL_CONFIG = {
     ? "http://127.0.0.1:5178"
     : "/fpl-api"
 };
+
+export const SUPERSPORT_CONFIG = {
+  // SuperSport (Croatia) serves its whole offer over one pub/sub WebSocket.
+  // The server does not check Origin, so the browser connects directly - and
+  // Netlify rewrites cannot proxy a WebSocket anyway, so there is no fallback.
+  wsUrl: "wss://www.supersport.hr/api/sbk",
+  lang: "hr",
+  handballSportId: "5"
+};
