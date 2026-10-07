@@ -1,6 +1,14 @@
 [build]
   publish = "."
 
+[build.environment]
+  # netlify/functions/supersport-handball.mjs needs a global WebSocket (Node 22+).
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [[redirects]]
   from = "/sb-api/*"
   to = "https://production-superbet-offer-rs.freetls.fastly.net/sb-rs/api/v2/:splat"

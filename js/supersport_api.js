@@ -120,6 +120,22 @@ function parseMessage(chunk) {
 }
 
 /**
+ * What the page calls. In production the socket is opened by the Netlify
+ * Function (see SUPERSPORT_CONFIG for why); locally the browser goes direct.
+ */
+export async function loadHandballPlayerLines() {
+  const url = SUPERSPORT_CONFIG.handballFunctionUrl;
+  if (!url) return fetchSupersportHandballPlayerLines();
+
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload) {
+    throw new Error(payload?.error || `SuperSport funkcija je vratila ${response.status}`);
+  }
+  return payload;
+}
+
+/**
  * Every handball fixture that carries player over/under lines.
  * Returns { fixtures, totalFixtures, missingTournaments }, where each fixture is
  * { fixtureId, home, away, startsAt, categoryName, tournamentName, players }

@@ -1,4 +1,4 @@
-import { fetchSupersportHandballPlayerLines } from "./supersport_api.js";
+import { loadHandballPlayerLines } from "./supersport_api.js";
 import { CSV_COLUMNS, makeCsvFilename, toAsciiMarketName } from "./csv.js";
 import { HANDBALL_PLAYER_TEAMS } from "./handball_player_teams.js";
 
@@ -80,7 +80,7 @@ async function loadOffer() {
   els.refreshButton.disabled = true;
 
   try {
-    const { fixtures, totalFixtures, missingTournaments } = await fetchSupersportHandballPlayerLines();
+    const { fixtures, totalFixtures, missingTournaments } = await loadHandballPlayerLines();
     if (requestId !== state.requestId) return;
 
     state.fixtures = fixtures;

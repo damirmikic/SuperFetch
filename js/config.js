@@ -1,4 +1,5 @@
-const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
+// `location` is absent when a Netlify Function imports this module server-side.
+const isLocal = typeof location !== "undefined" && ["localhost", "127.0.0.1"].includes(location.hostname);
 
 export const SUPERBET_CONFIG = {
   baseUrl: isLocal
@@ -45,9 +46,14 @@ export const FPL_CONFIG = {
 
 export const SUPERSPORT_CONFIG = {
   // SuperSport (Croatia) serves its whole offer over one pub/sub WebSocket.
-  // The server does not check Origin, so the browser connects directly - and
-  // Netlify rewrites cannot proxy a WebSocket anyway, so there is no fallback.
+  // The server does not check Origin, but a browser socket carries the user's
+  // supersport.hr cookies and passes through their extensions - and in some
+  // profiles the server then accepts the socket and never says a word (not
+  // even a pong), while Incognito works. So in production the socket is
+  // opened server-side by netlify/functions/supersport-handball.mjs and the
+  // page just fetches its JSON; locally the browser connects directly.
   wsUrl: "wss://www.supersport.hr/api/sbk",
+  handballFunctionUrl: isLocal ? null : "/.netlify/functions/supersport-handball",
   lang: "hr",
   handballSportId: "5"
 };
