@@ -1,6 +1,7 @@
 import { buildSpecijalRow, buildGroupOutrightCsvBlock, buildGroupPointsCsvRows, countCsvRows, CSV_COLUMNS, buildFullGroupSimulationCsv, buildTeamSimulationCsv, buildStatistikaMarketCsvRow, buildSingleOddCsvRow, makeCsvFilename, replaceTeamNameInText, detectCsvState, toAsciiMarketName, getRewrittenString, translateComboName } from "./csv.js";
 import { detectGroups, getEventWinnerOdds, runGroupSimulation, runTournamentSimulation, calculateOddsForGroup } from "./simulator.js";
 import { calculateSoccerXg, calculateWorldCupPeriodOffer, calculateWorldCupSpecialMarkets, calculateHeadedGoalMarket } from "./xg.js?v=20260916-1";
+import { calculateBasketballEarlyMarkets } from "./basketball_early_markets.js";
 
 
 const datetimeDisplay = document.querySelector("#datetime-display");
@@ -395,7 +396,21 @@ function createWorldCupSpecialMarketCards(searchNorm = "") {
   return markets.map(createWorldCupSpecialMarketCard);
 }
 
-function createWorldCupSpecialMarketCard(market) {
+function createBasketballEarlyMarketCards(searchNorm = "") {
+  if (!currentMarkets.length || !currentEvent) return [];
+
+  const result = calculateBasketballEarlyMarkets(currentMarkets);
+  if (!result) return [];
+
+  return result.markets
+    .filter((market) => !searchNorm || normalizeSearchText(market.marketName).includes(searchNorm))
+    .map((market) => createWorldCupSpecialMarketCard(market, {
+      badgeText: `Naša ponuda · granica ${result.line}`,
+      applyInitialMargin: false
+    }));
+}
+
+function createWorldCupSpecialMarketCard(market, { badgeText = "Naša ponuda", applyInitialMargin = true } = {}) {
   const card = document.createElement("article");
   const titleArea = document.createElement("div");
   const title = document.createElement("h3");
@@ -407,22 +422,24 @@ function createWorldCupSpecialMarketCard(market) {
   title.className = "market-title";
   title.textContent = market.marketName;
   badge.className = "custom-special-badge";
-  badge.textContent = "Naša ponuda";
+  badge.textContent = badgeText;
   oddsGrid.className = "odds-grid";
-  oddsGrid.append(...market.odds.map((odd) => createWorldCupSpecialOddButton(market.marketName, odd)));
+  oddsGrid.append(...market.odds.map((odd) => createWorldCupSpecialOddButton(market.marketName, odd, applyInitialMargin)));
 
   titleArea.append(title, badge);
   card.append(titleArea, oddsGrid);
   return card;
 }
 
-function createWorldCupSpecialOddButton(marketName, odd) {
+function createWorldCupSpecialOddButton(marketName, odd, applyInitialMargin = true) {
   const wrapper = document.createElement("div");
   const button = document.createElement("button");
   const label = document.createElement("span");
   const price = document.createElement("span");
   const addBtn = document.createElement("button");
-  const baseOdd = { ...odd, price: roundWorldCupSpecialOdds(odd.price * WORLD_CUP_SPECIAL_INITIAL_MARGIN_MULTIPLIER) };
+  const baseOdd = applyInitialMargin
+    ? { ...odd, price: roundWorldCupSpecialOdds(odd.price * WORLD_CUP_SPECIAL_INITIAL_MARGIN_MULTIPLIER) }
+    : odd;
   const multiplier = getOutrightMarginMultiplier();
   const adjustedOdd = multiplier !== 1 ? { ...baseOdd, price: baseOdd.price * multiplier } : baseOdd;
   const row = buildSpecijalRow({ event: currentEvent, marketName, odd: adjustedOdd, rewrittenEventName: getEventName(), isCombo: false });
@@ -845,9 +862,11 @@ export async function renderMarketsForCurrentFilter(preserveScroll = false) {
   const visible = searchNorm
     ? tabFiltered.filter((m) => normalizeSearchText(getRewrittenString(m.marketName, currentEvent, getEventName())).includes(searchNorm))
     : tabFiltered;
-  const customCards = activeMarketTab === "specijali"
-    ? createWorldCupSpecialMarketCards(searchNorm)
-    : [];
+  const customCards = activeMarketTab !== "specijali"
+    ? []
+    : currentSportId === 4
+      ? createBasketballEarlyMarketCards(searchNorm)
+      : createWorldCupSpecialMarketCards(searchNorm);
 
   if (!visible.length && !customCards.length) {
     elements.marketsList.replaceChildren(createEmptyState("No markets in this category", "🔍"));
