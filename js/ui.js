@@ -626,6 +626,39 @@ export function resetMarkets() {
 
 export function renderMarkets(markets) {
   _resetDefaultHost();
+
+  // Synthetic fallback for "Gol glavom" (soccer only) if feed doesn't have it
+  if (currentSportId === 5 && currentEvent && markets.length) {
+    const cleanGolGlavom = "golglavom";
+    const hasGolGlavom = markets.some(
+      (m) => normalizeSearchText(m.marketName).replace(/[^a-z0-9]/g, "") === cleanGolGlavom
+    );
+    if (!hasGolGlavom) {
+      const xgResult = calculateSoccerXg(markets, currentEvent);
+      if (xgResult.ok) {
+        const comp = getSelectedCompetition();
+        const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
+        const headed = calculateHeadedGoalMarket(xgResult, leagueName);
+        if (headed) {
+          markets.push({
+            marketId: "synthetic-gol-glavom",
+            uuid: "synthetic-gol-glavom",
+            marketName: "Gol glavom",
+            isSynthetic: true,
+            odds: [
+              {
+                oddId: "synthetic-gol-glavom-da",
+                uuid: "synthetic-gol-glavom-da",
+                name: "Da",
+                price: parseFloat((headed.yesOdds * 0.9).toFixed(2)),
+              }
+            ]
+          });
+        }
+      }
+    }
+  }
+
   currentMarkets = markets;
   marketSearch = "";
   expandedPlayers.clear();
@@ -956,6 +989,12 @@ const TENNIS_STATISTIKA_KEYWORDS = [
   "asov", "asev", "dupl", "brejk", "poen", "servis"
 ];
 
+// Pre-normalized versions — computed once at module load so isStatistikaMarket
+// does not call normalizeSearchText(kw) on every invocation.
+const STATISTIKA_KEYWORDS_NORM = STATISTIKA_KEYWORDS.map(normalizeSearchText);
+const BASKETBALL_STATISTIKA_KEYWORDS_NORM = BASKETBALL_STATISTIKA_KEYWORDS.map(normalizeSearchText);
+const TENNIS_STATISTIKA_KEYWORDS_NORM = TENNIS_STATISTIKA_KEYWORDS.map(normalizeSearchText);
+
 /**
  * Returns true if the market name matches a team-level statistika keyword.
  * Player-prop markets that incidentally contain "šut" or "faul" etc. are excluded
@@ -965,15 +1004,30 @@ function isStatistikaMarket(marketName) {
   const norm = normalizeSearchText(marketName);
   if (norm.includes("igrac")) return false;
   const keywords = currentSportId === 4
-    ? BASKETBALL_STATISTIKA_KEYWORDS
+    ? BASKETBALL_STATISTIKA_KEYWORDS_NORM
     : currentSportId === 2
-      ? TENNIS_STATISTIKA_KEYWORDS
-      : STATISTIKA_KEYWORDS;
-  return keywords.some((kw) => norm.includes(normalizeSearchText(kw)));
+      ? TENNIS_STATISTIKA_KEYWORDS_NORM
+      : STATISTIKA_KEYWORDS_NORM;
+  return keywords.some((kw) => norm.includes(kw));
+}
+
+/**
+ * Returns true if the market has Da/Ne (yes/no) outcomes — e.g. "Gol glavom".
+ * These are outright-style markets that should NOT be treated as split statistika.
+ */
+function isDaNe(market) {
+  if (!market.odds || !market.odds.length) return false;
+  return market.odds.every((o) => {
+    const n = normalizeSearchText(o.name);
+    return n === "da" || n === "ne" || n === "yes" || n === "no";
+  });
 }
 
 function isSplitStatistikaMarket(market, isStatistika) {
   if (!isStatistika) return false;
+  const normName = normalizeSearchText(market.marketName);
+  if (normName.includes("gol glavom")) return false;
+  if (isDaNe(market)) return false;
   const hasViseManje = market.odds.some((odd) => {
     const norm = normalizeSearchText(odd.name);
     return norm.includes("manje") || norm.includes("under") || norm.includes("ispod") || norm.includes("less") ||
@@ -1751,6 +1805,8 @@ function createMarketCard(market) {
         if (n.includes("manje") || n.includes("under")) addBtn.dataset.originalPriceU = o.price;
         else if (n.includes("vise") || n.includes("over")) addBtn.dataset.originalPriceO = o.price;
       }
+      const daOdd = market.odds.find((o) => /\b(da|yes)\b/i.test(String(o.name))) || (market.odds.length === 1 ? market.odds[0] : null);
+      if (daOdd) addBtn.dataset.originalPrice = daOdd.price;
     } else {
       addBtn.textContent = "+";
     }
@@ -1956,6 +2012,7 @@ const DEFAULT_MARKET_BASES = [
   "{away} ukupno ofsajda",
   "Ukupno odbrana golmana",
   "Ukupno dosuđenih penala",
+  "Gol glavom",
 ];
 
 const DEFAULT_OU_MARKET_RULES = new Map([
@@ -2204,30 +2261,52 @@ export function addDefaultStatistikaMarkets() {
     }
   }
 
-  // ── Synthetic "Gol glavom" market (soccer only) ───────────────────────────
-  // Derived from Dixon-Coles xG × league-specific headed goal rate → Poisson P(≥1)
+  // ── Synthetic "Gol glavom" market (soccer only, fallback) ────────────────
+  // Only fires when Superbet does NOT have a real "Gol glavom" market in the
+  // feed for this event (the real one is handled above via DEFAULT_MARKET_BASES).
+  // Derived from Dixon-Coles xG × league-specific headed goal rate → Poisson P(≥1).
   if (currentSportId === 5) {
-    const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
-    if (xgResult.ok) {
-      const comp = getSelectedCompetition();
-      const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
-      const headed = calculateHeadedGoalMarket(xgResult, leagueName);
-      if (headed) {
-        const specKey = "gol glavom";
-        if (!host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) {
-          const btn = document.createElement("button");
-          btn.className = "add-odd-button add-odd-button--inline";
-          btn.dataset.specKey = specKey;
-          btn.dataset.marketType = "outright";
-          host.appendChild(btn);
-          document.dispatchEvent(new CustomEvent("add-specijal-to-csv", {
-            detail: {
-              marketName: headed.marketName,
-              odd: { name: "Da", price: headed.yesOdds * 0.9 }, // built-in 10% margin
-              button: btn,
-              isCombo: false
-            }
-          }));
+    const cleanGolGlavom = "golglavom";
+    const hasMarket = currentMarkets.some(
+      (m) => normalizeSearchText(m.marketName).replace(/[^a-z0-9]/g, "") === cleanGolGlavom
+    );
+
+    if (!hasMarket) {
+      const xgResult = calculateSoccerXg(currentMarkets, currentEvent);
+      if (xgResult.ok) {
+        const comp = getSelectedCompetition();
+        const leagueName = `${comp?.tournamentName || ""} ${comp?.categoryName || ""}`;
+        const headed = calculateHeadedGoalMarket(xgResult, leagueName);
+        if (headed) {
+          const synthMarket = {
+            marketId: "synthetic-gol-glavom",
+            uuid: "synthetic-gol-glavom",
+            marketName: "Gol glavom",
+            isSynthetic: true,
+            odds: [
+              {
+                oddId: "synthetic-gol-glavom-da",
+                uuid: "synthetic-gol-glavom-da",
+                name: "Da",
+                price: parseFloat((headed.yesOdds * 0.9).toFixed(2)),
+              }
+            ]
+          };
+          currentMarkets.push(synthMarket);
+          const specKey = "gol glavom";
+          if (!host.querySelector(`[data-spec-key="${CSS.escape(specKey)}"].is-added`)) {
+            const btn = document.createElement("button");
+            btn.className = "add-odd-button";
+            btn.dataset.specKey = specKey;
+            btn.dataset.marketType = "ou";
+            host.appendChild(btn);
+            document.dispatchEvent(new CustomEvent("add-statistika-to-csv", {
+              detail: {
+                market: synthMarket,
+                button: btn
+              }
+            }));
+          }
         }
       }
     }

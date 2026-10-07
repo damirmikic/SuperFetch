@@ -10,6 +10,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
+    <!-- Preload entire ES module graph in parallel to eliminate waterfall latency -->
+    <link rel="modulepreload" href="./js/main.js">
+    <link rel="modulepreload" href="./js/ui.js">
+    <link rel="modulepreload" href="./js/api.js">
+    <link rel="modulepreload" href="./js/csv.js">
+    <link rel="modulepreload" href="./js/xg.js">
+    <link rel="modulepreload" href="./js/config.js">
+    <link rel="modulepreload" href="./js/sports.js">
+    <link rel="modulepreload" href="./js/match_matcher.js">
   </head>
   <body>
     <div class="app-root">

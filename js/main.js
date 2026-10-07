@@ -311,6 +311,8 @@ document.addEventListener("add-statistika-to-csv", ({ detail: { market, button }
     if (n.includes("manje") || n.includes("under")) button.dataset.originalPriceU = o.price;
     else if (n.includes("vise") || n.includes("over")) button.dataset.originalPriceO = o.price;
   }
+  const daOdd = market.odds.find((o) => /\b(da|yes)\b/i.test(String(o.name))) || (market.odds.length === 1 ? market.odds[0] : null);
+  if (daOdd) button.dataset.originalPrice = daOdd.price;
   button.textContent = "✓";
   button.title = "Remove from CSV";
   button.classList.add("is-added");

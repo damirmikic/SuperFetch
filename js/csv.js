@@ -103,6 +103,16 @@ export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName 
     return formatCsvRow([date, time, "", formattedMarketName, answer, formatPrice(selectedOdd?.price), "", "", "", "", "", "", ""]);
   }
 
+  if (marketNorm.includes("gol glavom")) {
+    const selectedOdd = market.odds.find((odd) => /\b(da|yes)\b/i.test(String(odd.name))) || market.odds[0];
+    let formattedMarketName = toAsciiMarketName(marketName)
+      .replace(/\s*[-–]\s*(da|yes)\s*$/i, "")
+      .trim();
+    if (!formattedMarketName) formattedMarketName = "Gol glavom";
+    const answer = "Da";
+    return formatCsvRow([date, time, "", formattedMarketName, answer, formatPrice(selectedOdd?.price), "", "", "", "", "", "", ""]);
+  }
+
   let line = "";
   let underPrice = "";
   let overPrice = "";
@@ -176,6 +186,10 @@ export function buildSpecijalRow({ event, marketName, odd, rewrittenEventName, i
     if (ansLower === "da" || ansLower === "yes") {
       answer = "";
     }
+  }
+
+  if (marketNorm.includes("gol glavom")) {
+    answer = "Da";
   }
 
   if (!market) return "";
