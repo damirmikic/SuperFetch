@@ -2027,6 +2027,8 @@ const BASKETBALL_DEFAULT_MARKET_BASES = [
   "Ukupno blokada (uklj. produžetke)",
   "Ukupno trojki (uklj. produžetke)",
   "Ukupno postignutih 3 poena (uklj. produžetke)",
+  "Ukupno postignutih slobodnih bacanja (uklj. produžetke)",
+  "Ukupno izgubljenih lopti (uklj. produžetke)",
   "{home} - Ukupno asistencija (uklj. produžetke)",
   "{away} - Ukupno asistencija (uklj. produžetke)",
   "Ukupno skokova {home} (uklj. produžetke)",
