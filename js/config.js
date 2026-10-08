@@ -45,15 +45,11 @@ export const FPL_CONFIG = {
 };
 
 export const SUPERSPORT_CONFIG = {
-  // SuperSport (Croatia) serves its whole offer over one pub/sub WebSocket.
-  // The server does not check Origin, but a browser socket carries the user's
-  // supersport.hr cookies and passes through their extensions - and in some
-  // profiles the server then accepts the socket and never says a word (not
-  // even a pong), while Incognito works. So in production the socket is
-  // opened server-side by netlify/functions/supersport-handball.mjs and the
-  // page just fetches its JSON; locally the browser connects directly.
+  // SuperSport (Croatia) serves its offer over WebSocket. We fetch it via
+  // our Cloudflare Worker to avoid browser cookie/adblock issues as well as
+  // Netlify AWS region geoblocking.
   wsUrl: "wss://www.supersport.hr/api/sbk",
-  handballFunctionUrl: isLocal ? null : "/.netlify/functions/supersport-handball",
+  handballFunctionUrl: "https://superfetch.damir-22b.workers.dev",
   lang: "hr",
   handballSportId: "5"
 };
