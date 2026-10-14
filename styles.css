@@ -2720,3 +2720,101 @@ optgroup {
 .handball-toolbar {
   margin-bottom: 10px;
 }
+
+/* Handball manual entry */
+.handball-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.handball-section-head {
+  margin-top: 14px;
+  color: var(--accent);
+}
+
+.handball-manual-fixture {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.handball-manual-fixture summary {
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.handball-manual-fixture-form {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.handball-manual {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.handball-manual-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.handball-manual-player {
+  flex: 1 1 180px;
+}
+
+.handball-roster {
+  display: grid;
+  gap: 6px;
+}
+
+.handball-roster-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.handball-roster-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.handball-roster-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.handball-manual-badge {
+  margin-left: 6px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.daily-odds-edit.is-invalid {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.handball-search {
+  width: 100%;
+  margin-bottom: 8px;
+}

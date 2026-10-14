@@ -48,7 +48,25 @@
             <div id="events-status" class="status-pill" role="status">Učitavanje…</div>
           </div>
 
+          <input id="fixture-search" class="daily-team-input handball-search" type="search" placeholder="Traži meč, tim ili ligu…" autocomplete="off">
+
+          <label class="handball-toggle">
+            <input id="show-all-fixtures" type="checkbox">
+            <span>Prikaži i mečeve bez igrača</span>
+          </label>
+
           <div id="fixture-list" class="daily-events-list"></div>
+
+          <details class="handball-manual-fixture">
+            <summary>+ Meč koji SuperSport nema</summary>
+            <form id="manual-fixture-form" class="handball-manual-fixture-form">
+              <input id="manual-home" class="daily-team-input" list="team-options" placeholder="Domaćin" required>
+              <input id="manual-away" class="daily-team-input" list="team-options" placeholder="Gost" required>
+              <input id="manual-start" class="daily-team-input" type="datetime-local" required>
+              <button class="action-btn action-btn--secondary" type="submit">Dodaj meč</button>
+            </form>
+            <datalist id="team-options"></datalist>
+          </details>
 
           <div class="daily-controls">
             <div id="teams-status" class="csv-status-text" role="status"></div>
@@ -59,6 +77,11 @@
             Svaki klik na „+ Dom" / „+ Gost" pamti tim igrača u ovom browseru. Kad se igrač ponovo pojavi,
             dugme njegovog tima je označeno, a „Dodaj poznate" doda sve takve igrače odjednom.
             „Izvezi veze" daje naučene veze u obliku za fajl, da vrijede svugdje.
+          </p>
+          <p class="fantasy-note">
+            Za meč bez igrača u ponudi: odaberi ga (uključi „Prikaži i mečeve bez igrača") i unesi
+            igrače ručno ispod tablice. Igrači iz rostera oba tima su ponuđeni, tim se bira sam.
+            Ručni unosi se čuvaju u ovom browseru do 12 h nakon početka meča.
           </p>
         </aside>
 

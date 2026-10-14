@@ -136,8 +136,8 @@ export async function loadHandballPlayerLines() {
 }
 
 /**
- * Every handball fixture that carries player over/under lines.
- * Returns { fixtures, totalFixtures, missingTournaments }, where each fixture is
+ * Every handball fixture, with its player over/under lines where SuperSport
+ * prices them (an empty `players` array where it does not). Returns { fixtures, totalFixtures, missingTournaments }, where each fixture is
  * { fixtureId, home, away, startsAt, categoryName, tournamentName, players }
  * and each player row is { lineId, marketId, marketName, player, line, under, over }.
  */
@@ -228,9 +228,10 @@ function parseTournamentBody(body, sportId) {
         if (!fixture.H || !fixture.A) continue;
         totalFixtures += 1;
 
+        // Fixtures without player lines are kept too (players: []), so the
+        // page can offer manual entry for them.
         const players = Object.keys(fixture.a ?? {})
           .flatMap((offerId) => extractPlayerRows(offers[offerId], playerMarkets));
-        if (!players.length) continue;
 
         fixtures.push({
           fixtureId,
