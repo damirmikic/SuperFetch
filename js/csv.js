@@ -144,13 +144,51 @@ export function buildStatistikaMarketCsvRow({ event, market, rewrittenEventName 
     }
   }
 
-  const dashIdx = marketName.indexOf(" - ");
-  const domacin = dashIdx !== -1
-    ? toAsciiMarketName(marketName.slice(0, dashIdx).trim())
-    : toAsciiMarketName(marketName);
-  const gost = dashIdx !== -1 ? toAsciiMarketName(marketName.slice(dashIdx + 3).trim()) : "";
+  let domacin;
+  let gost;
+  if (event.sportId === 4) {
+    // Basketball: team name (if present) goes to Domacin, the game name to Gost.
+    const split = splitTeamFromMarketName(marketName, event, rewrittenEventName);
+    domacin = toAsciiMarketName(split ? split.team : marketName);
+    gost = split ? toAsciiMarketName(split.game) : "";
+  } else {
+    const dashIdx = marketName.indexOf(" - ");
+    domacin = dashIdx !== -1
+      ? toAsciiMarketName(marketName.slice(0, dashIdx).trim())
+      : toAsciiMarketName(marketName);
+    gost = dashIdx !== -1 ? toAsciiMarketName(marketName.slice(dashIdx + 3).trim()) : "";
+  }
 
   return formatCsvRow([date, time, "", domacin, gost, "", "", "", line, underPrice, overPrice, "", ""]);
+}
+
+/**
+ * Splits a market name such as "Partizan - Ukupno skokova (uklj. produzetke)" or
+ * "Ukupno skokova Partizan (uklj. produzetke)" into { team, game }. Returns null
+ * when neither team of the event appears in the name.
+ */
+function splitTeamFromMarketName(marketName, event, rewrittenEventName) {
+  const candidates = [];
+  if (rewrittenEventName) {
+    const parts = rewrittenEventName.split(/\s+-\s+/);
+    if (parts.length === 2) candidates.push(parts[0].trim(), parts[1].trim());
+  }
+  candidates.push(event.homeTeam, event.awayTeam);
+
+  for (const team of candidates) {
+    if (!team) continue;
+    for (const variant of [team, toAsciiMarketName(team)]) {
+      const idx = marketName.toLowerCase().indexOf(variant.toLowerCase());
+      if (idx === -1) continue;
+      const game = (marketName.slice(0, idx) + " " + marketName.slice(idx + variant.length))
+        .replace(/\s*[-–]\s*/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .replace(/\s+\)/g, ")")
+        .trim();
+      return { team: variant === team ? team : variant, game };
+    }
+  }
+  return null;
 }
 
 /**
