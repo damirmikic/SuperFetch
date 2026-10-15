@@ -26,7 +26,7 @@ This listens on port 5178 and must run alongside `python -m http.server 5177`. W
 
 ## Architecture
 
-Vanilla JS, no framework, no bundler. Seven HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
+Vanilla JS, no framework, no bundler. Eight HTML pages, each a separate entry point loading exactly one `<script type="module">`; everything else comes in via ES imports.
 
 | Page | Entry module | Sport |
 |---|---|---|
@@ -36,6 +36,7 @@ Vanilla JS, no framework, no bundler. Seven HTML pages, each a separate entry po
 | `daily-specials.html` | `js/daily_specials_main.js` | Soccer (synthetic markets) |
 | `fantasy.html` | `js/fantasy_main.js` | Soccer (EPL fantasy points, synthetic) |
 | `missing.html` | `js/missing_main.js` | Soccer / basketball / tennis (Superbet vs Merkurxtip offer diff) |
+| `specials-diff.html` | `js/specials_diff_main.js` | Soccer (Merkurxtip specials vs Superbet markets) |
 | `handball.html` | `js/handball_main.js` | Handball (SuperSport.hr player goal lines) |
 
 ### Shared modules
@@ -116,12 +117,12 @@ Each competitor is reconciled against Superbet independently, and the table then
 
 #### Name aliases
 
-Fuzzy similarity handles spelling drift but cannot bridge names that share no letters. `merkur_team_names.js` covers those:
+Fuzzy similarity handles spelling drift but cannot bridge names that share no letters. `team_name_aliases.js` covers those:
 
 - **National teams are the big one** — Merkur publishes them in English, Superbet in Serbian (`Turkey` / `Turska`, `Wales` / `Vels`). Without the table every international-break fixture reads as missing.
 - The table is matched on **core tokens**, after `normalizeTeamName()` has pulled out age/reserve/women markers, so one entry covers a side's every variant: `Wolves` → `Wolverhampton` also pairs `Wolves U21`/`Wolverhampton U21` and `Wolves W`/`Wolverhampton (Ž)`.
 - Entries are written **ASCII-only** (`Slovacka`, not `Slovačka`). `normalizeTeamName()` strips diacritics before comparing, so this costs nothing and keeps the file free of the encoding artifacts described under "Encoding note".
-- Aliases confirmed in the UI are appended from localStorage (`superfetch.merkurAliases`); "Izvezi aliase" emits them in `CLUB_ALIASES` shape to be merged into the static table.
+- Aliases confirmed in the UI are appended from localStorage (`superfetch.aliases.<book>.<sport>`); "Izvezi aliase" emits them in `CLUB_ALIASES` shape to be merged into the static table.
 
 #### The two women's markers, and the traps in each
 
@@ -149,12 +150,22 @@ The audit surface is the **Merkur-only list (~75 rows), not the ~640 missing one
 - "Povezi" stores the differing name pairs as aliases for *that* book and recomputes; it does not pin the two fixture ids together, since an alias also fixes every future round. It skips a side that already pairs on its own (checked with `teamSimilarity` against the live threshold) — usually only one of the two names is the problem, and storing the other would just bloat the exported table.
 - Most orphans are genuinely Merkur-only: women's leagues Superbet does not carry, plus Merkur's synthetic "Zamišljeni mečevi".
 
+### Specials diff: Merkurxtip vs Superbet (`specials-diff.html` / `js/specials_diff_main.js`)
+
+Compares Merkur's soccer **match and team** specials (sport code `SF`) with Superbet's single markets, fixture by fixture: which markets exist on only one book, and where prices differ. Display + TSV only; no `csv.js`. **Player props are deliberately out of scope** (Merkur's `"Team,Player"` groups are dropped in `merkur_specials_api.js`).
+
+- **Merkur's `SF` feed is one flat `esMatches` array in which every "match" is a single priced market.** `leagueName` `"Lyon - Crystal Palace"` marks a match-level market: `home` = market text, `away` = `"."`, line in `params.overUnder`, odds `227` over / `228` under; first-half markets put `"1.poluvreme"` in `home` and the text in `away`; range/yes markets have a single odd `1`. `round` is identical for the whole offer, so it groups nothing - fixtures are keyed by kickoff + `leagueName`.
+- **Superbet "specijali" (`;` markets) are bet-builder combinations, not comparable** and are skipped. Only stats Merkur offers are mapped (`js/specials_model.js`, `TOTAL_STATS`), because a big fixture carries ~1000 Superbet markets and the point is the difference. Merkur's own combination markets (`"2+ golova i 7+ kornera"`) are counted as "nemapirano".
+- **Both sides are reduced to `{scope, stat, subject, line, outcomes}`** (scope ft/h1/h2, subject match/home/away). Adding a stat is one row in `TOTAL_STATS`.
+- **Fixtures are paired with `compareOffers()`** by turning each Merkur fixture into a match-shaped record; orientation is then checked once (`teamSimilarity` straight vs crossed) so home/away subjects line up with Superbet. Superbet markets are fetched per paired event, 4 at a time.
+- **Row statuses:** `both` (same market and line; prices compared), `mx` (Merkur only), `sb-line` (Superbet has the market on another line), `sb` (Superbet only, for a stat Merkur offers in that fixture). Price difference is `Superbet / Merkur - 1`; the delta cell is green where Merkur pays less, red where it pays more, per outcome. Outcomes are always printed over, under (ranges by lower bound) so the two columns line up.
+
 ### Handball player lines: SuperSport.hr (`handball.html` / `js/handball_main.js`)
 
 Lists every handball fixture SuperSport prices player goal lines for (market `1098 zbroj golova igrača`) and builds a CSV from them: one `MATCH_NAME:golovi igraca` header, `LEAGUE_NAME:<team>` per team, then one row per line with the player in `Domacin`, `broj golova` in `Gost`, the line in `GR`, `manje` in `U` and `više` in `O`. It does not go through `csv.js`'s row builders (it only borrows `CSV_COLUMNS`, `makeCsvFilename`, `toAsciiMarketName`).
 
 - **The feed is a pub/sub WebSocket** (`wss://www.supersport.hr/api/sbk`), not REST. Subscribe with `{"t":1,"u":[{"s":"<topic>","n":0}]}`; replies are a JSON header line (`s` topic, `f:1` full snapshot) plus a JSON body line with abbreviated keys (legend in `supersport_api.js`). The server does not check `Origin`.
-- **In production the socket is opened server-side** by `netlify/functions/supersport-handball.mjs` (Node 22 for the global `WebSocket`, pinned in `netlify.toml`), and the page fetches its JSON; locally the browser connects directly (`SUPERSPORT_CONFIG.handballFunctionUrl` is null on localhost). Reason: a browser socket carries the user's supersport.hr cookies and passes through extensions, and in some profiles the server then accepts the socket and never sends a single frame, not even a pong — while Incognito works. That is not fixable from page code. The function imports `supersport_api.js` directly, which is why `config.js` guards `location`.
+- **In production the socket is opened server-side** by a Cloudflare Worker (`worker/index.js`, configured in `wrangler.toml`; `SUPERSPORT_CONFIG.handballFunctionUrl` points at it). It replaced the Netlify function in `netlify/functions/supersport-handball.mjs`, which Netlify's AWS region geoblocked. The page fetches the Worker's JSON; locally the browser connects directly (`SUPERSPORT_CONFIG.handballFunctionUrl` is null on localhost). Reason: a browser socket carries the user's supersport.hr cookies and passes through extensions, and in some profiles the server then accepts the socket and never sends a single frame, not even a pong — while Incognito works. That is not fixable from page code. The Worker imports `supersport_api.js` directly, which is why `config.js` guards `location`.
 - **Topics**: `i_hr` is the whole offer tree but player lines arrive as empty `{}`; `t_<tournamentId>_hr` has every line filled in. The fixture topic is `f_f<id>_hr` (the `f` is part of the id) and also leaves player lines empty — use the tournament topic.
 - **One topic per connection.** Batching several topics on one socket makes the server silently skip some (14–15 of 20 came back batched, all 20 one-per-socket). `supersport_api.js` therefore opens a short-lived socket per tournament, 4 at a time; a full load takes about a second. Do not "optimise" this back into one connection.
 - **The feed has no player→team link** — line names are just `zbroj golova Vlah Aleks (5.5)`. The UI makes the user pick `+ Dom` / `+ Gost` per player, which sets the team's `LEAGUE_NAME` block. Names come surname-first and are editable in the table before export. Links are remembered: `js/handball_player_teams.js` (generated from the roster sheet) is searched **only among the two teams of the fixture**, which is what makes loose matching safe — word order and diacritics ignored (`Aleks Vlah` = `Vlah Aleks`; `þ/ð/æ/ø/ł/ß` folded explicitly, NFD leaves them whole), and failing an exact word match, a unique subset match of 2+ words (`Gisli Kristjansson` ⊂ `Kristjansson Gisli Thorgeir`). Transliteration differences (`Korolek Artem` / `Artsem Karalek`) are not bridged. Clicks are learned into localStorage (`superfetch.handballPlayerTeams`, wins over the file); the known side's button is highlighted and "Dodaj poznate" adds them all. Teams match when every word of the shorter name is in the longer (`Kielce` covers `Vive Kielce`); `TEAM_RENAMES` in the script handles names sharing no words (`Dinamo Bucarest` → `Bukurest`).
@@ -217,6 +228,8 @@ Six tabs: **Sve, Obično, Statistika, Specijali, Dom. igrači, Gost. igrači** �
 - One row per market; Under→col U (9), Over→col O (10), line→col GR (8).
 - Block header on first add: `MATCH_NAME:Specijal` / `LEAGUE_NAME:<event>`.
 - Download filename: full event name.
+
+**Basketball Statistika rows** (`buildStatistikaMarketCsvRow()`, `event.sportId === 4`): `splitTeamFromMarketName()` puts the team name, if the market name contains one of the event's teams (original or rewritten), in `Domacin` and the remaining game name (`Ukupno skokova (uklj. produzetke)`) in `Gost`. With no team in the name, the whole market name goes in `Domacin` and `Gost` stays empty. Other sports keep the `" - "` split.
 
 **Empty-CSV rule:** after every remove, `clearCsvIfNoSelections()` checks for any remaining `.add-odd-button.is-added` — if none, CSV is cleared entirely regardless of orphaned headers.
 

@@ -2818,3 +2818,14 @@ optgroup {
   width: 100%;
   margin-bottom: 8px;
 }
+
+/* Specijali razlike: Merkur jeftiniji od Superbeta = zeleno, skuplji = crveno */
+.delta-good {
+  color: #3fb950;
+  font-weight: 700;
+}
+
+.delta-bad {
+  color: var(--red);
+  font-weight: 700;
+}

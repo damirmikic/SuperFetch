@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SPECIJALI - Superbet vs Merkur</title>
+    <meta name="description" content="Poredjenje specijala Merkurxtip i Superbet ponude: koja trzista postoje samo kod jednog i gde se kvote razlikuju.">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-root">
+      <header class="topbar" aria-labelledby="app-title">
+        <div class="topbar-brand">
+          <span class="brand-icon" aria-hidden="true">RZ</span>
+          <div>
+            <span class="brand-tag">superbet vs merkurxtip</span>
+            <h1 id="app-title" class="brand-name">SPECIJALI</h1>
+          </div>
+        </div>
+        <nav class="sports-nav">
+          <a href="index.html" class="sport-link">Fudbal</a>
+          <a href="basketball.html" class="sport-link">Kosarka</a>
+          <a href="tennis.html" class="sport-link">Tenis</a>
+          <a href="handball.html" class="sport-link">Rukomet</a>
+          <a href="daily-specials.html" class="sport-link">Dnevni Specijali</a>
+          <a href="fantasy.html" class="sport-link">Fantasy</a>
+          <a href="missing.html" class="sport-link">Missing</a>
+          <a href="specials-diff.html" class="sport-link is-active">Specijali razlike</a>
+        </nav>
+        <div class="topbar-controls">
+          <div id="status" class="status-pill" role="status">Starting...</div>
+          <button id="refresh-button" class="icon-btn" type="button" title="Refresh" aria-label="Refresh">R</button>
+        </div>
+      </header>
+
+      <main class="workspace daily-workspace">
+        <aside class="sidebar daily-sidebar" aria-labelledby="specials-filters-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Poredjenje specijala</span>
+              <h2 id="specials-filters-title" class="panel-title">Filteri</h2>
+            </div>
+          </div>
+
+          <div class="daily-controls">
+            <label class="field">
+              <span class="field-label">Pretraga</span>
+              <input id="specials-search" class="daily-input" type="search" placeholder="Mec ili tim" autocomplete="off">
+            </label>
+
+            <label class="field">
+              <span class="field-label">Prikazi</span>
+              <select id="specials-view" class="daily-input">
+                <option value="diff" selected>Razlike (samo Merkur + kvote)</option>
+                <option value="mx">Samo Merkur (nema na Superbetu)</option>
+                <option value="sb">Samo Superbet (nema na Merkuru)</option>
+                <option value="price">Samo razlika u kvoti</option>
+                <option value="both">Sva uparena trzista</option>
+                <option value="all">Sve</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Min. razlika u kvoti (%)</span>
+              <input id="specials-min-delta" class="daily-input" type="number" min="0" step="0.5" value="5">
+            </label>
+
+            <label class="field field--inline">
+              <input id="specials-hide-empty" type="checkbox" checked>
+              <span class="field-label">Sakrij mecove bez rezultata</span>
+            </label>
+
+            <button id="reload-button" class="action-btn action-btn--primary" type="button">Osvezi ponude</button>
+            <button id="copy-button" class="action-btn action-btn--secondary" type="button" disabled>Kopiraj (TSV)</button>
+            <button id="download-button" class="action-btn action-btn--secondary" type="button" disabled>Preuzmi TSV</button>
+          </div>
+
+          <p class="fantasy-note">
+            Merkur trzista (SF) i Superbet trzista se svode na isti oblik (statistika, tim, linija).
+            Razlika u kvoti je
+            <b>Superbet / Merkur - 1</b>: pozitivna znaci da Superbet placa vise.
+          </p>
+
+          <p class="fantasy-note">
+            Poredi se samo ono sto Merkur nudi kao pojedinacna trzista. Kombinovani specijali
+            (npr. "2+ golova i 7+ kornera") se ne uparuju - prikazani su u zbiru "nemapirano".
+            Igracka trzista nisu deo poredjenja - samo trzista meca i timova.
+          </p>
+        </aside>
+
+        <section class="markets-panel daily-panel" aria-labelledby="specials-title">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Merkur vs Superbet</span>
+              <h2 id="specials-title" class="panel-title">Razlike u specijalima</h2>
+            </div>
+            <div class="panel-head-right">
+              <div id="specials-result-status" class="status-pill" role="status">Ucitavanje...</div>
+            </div>
+          </div>
+
+          <div id="specials-summary" class="csv-status-text" role="status">Ucitavanje ponuda...</div>
+
+          <div id="specials-list" class="missing-list">
+            <div class="empty-state">
+              <span class="empty-icon">--</span>
+              <span>Ucitavanje...</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./js/specials_diff_main.js"></script>
+  </body>
+</html>
