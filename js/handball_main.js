@@ -67,6 +67,9 @@ const state = {
   nameOverrides: new Map(),
   showAll: loadShowAll(),
   editableOdds: loadEditableOdds(),
+  initializedFixtures: new Set(),
+  excluded: new Set(),
+  lastSide: new Map(),
   // Normalized words typed into the fixture search; every one must match.
   searchWords: [],
   // Odds the manual form starts with: the last ones entered.
@@ -88,8 +91,14 @@ els.refreshButton.addEventListener("click", () => loadOffer());
 els.copyButton.addEventListener("click", copyCsv);
 els.downloadButton.addEventListener("click", downloadCsv);
 els.clearButton.addEventListener("click", () => {
+  for (const f of allFixtures()) {
+    for (const r of rowsFor(f)) {
+      state.excluded.add(lineKey(f.fixtureId, r.lineId));
+    }
+  }
   state.added.clear();
   renderPlayers();
+  renderFixtures();
   renderCsv();
 });
 els.exportTeamsButton.addEventListener("click", exportLearnedTeams);
@@ -292,6 +301,27 @@ function renderPlayers() {
   els.datetime.textContent = `${date} ${time}`;
 
   const rows = rowsFor(fixture);
+
+  // Initialize all players for this fixture as checked by default
+  if (!state.initializedFixtures.has(fixture.fixtureId)) {
+    state.initializedFixtures.add(fixture.fixtureId);
+    let changed = false;
+    for (const row of rows) {
+      const key = lineKey(fixture.fixtureId, row.lineId);
+      if (!state.excluded.has(key) && !state.added.has(key)) {
+        const side = row.side || knownSide(fixture, row) || "home";
+        state.added.set(key, side);
+        if (row.manual) row.side = side;
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveManual();
+      renderFixtures();
+      renderCsv();
+    }
+  }
+
   const knownPending = rows.filter((row) =>
     knownSide(fixture, row) && !state.added.has(lineKey(fixture.fixtureId, row.lineId)));
   const toolbar = document.createElement("div");
@@ -305,7 +335,9 @@ function renderPlayers() {
   addKnownButton.addEventListener("click", () => {
     for (const row of knownPending) {
       const side = knownSide(fixture, row);
-      state.added.set(lineKey(fixture.fixtureId, row.lineId), side);
+      const key = lineKey(fixture.fixtureId, row.lineId);
+      state.excluded.delete(key);
+      state.added.set(key, side);
       if (row.manual) row.side = side;
     }
     saveManual();
@@ -357,18 +389,86 @@ function renderPlayers() {
   }
 
   const table = document.createElement("table");
-  table.className = "daily-table";
+  table.className = "daily-table handball-table";
   table.innerHTML = `
     <thead>
-      <tr><th>Igrač</th><th>GR</th><th>Manje</th><th>Više</th><th>Dodaj</th></tr>
+      <tr>
+        <th class="handball-check-th"><input type="checkbox" class="handball-check-all" title="Označi / odznači sve"></th>
+        <th>Igrač</th>
+        <th>GR</th>
+        <th>Manje</th>
+        <th>Više</th>
+        <th>Dodaj</th>
+      </tr>
     </thead>`;
   const tbody = document.createElement("tbody");
+
+  const checkAll = table.querySelector(".handball-check-all");
+  const addedRowsCount = rows.filter((r) => state.added.has(lineKey(fixture.fixtureId, r.lineId))).length;
+  checkAll.checked = rows.length > 0 && addedRowsCount === rows.length;
+  checkAll.indeterminate = addedRowsCount > 0 && addedRowsCount < rows.length;
+  checkAll.addEventListener("change", () => {
+    const shouldAdd = checkAll.checked;
+    for (const r of rows) {
+      const k = lineKey(fixture.fixtureId, r.lineId);
+      if (shouldAdd) {
+        state.excluded.delete(k);
+        const side = state.added.get(k) || state.lastSide?.get(k) || knownSide(fixture, r) || r.side || "home";
+        state.added.set(k, side);
+        if (r.manual) r.side = side;
+        learnTeam(r.player, side === "home" ? fixture.home : fixture.away);
+      } else {
+        const curSide = state.added.get(k);
+        if (curSide) {
+          if (!state.lastSide) state.lastSide = new Map();
+          state.lastSide.set(k, curSide);
+        }
+        state.added.delete(k);
+        state.excluded.add(k);
+        if (r.manual) r.side = null;
+      }
+    }
+    saveManual();
+    renderPlayers();
+    renderFixtures();
+    renderCsv();
+  });
 
   for (const row of rows) {
     const key = lineKey(fixture.fixtureId, row.lineId);
     const team = state.added.get(key);
     const tr = document.createElement("tr");
     if (!team) tr.classList.add("is-muted");
+
+    const checkCell = document.createElement("td");
+    checkCell.className = "handball-check-td";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "handball-player-check";
+    checkbox.title = "Uključi u CSV";
+    checkbox.checked = Boolean(team);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        state.excluded.delete(key);
+        const side = state.lastSide?.get(key) || knownSide(fixture, row) || row.side || "home";
+        state.added.set(key, side);
+        if (row.manual) row.side = side;
+        learnTeam(row.player, side === "home" ? fixture.home : fixture.away);
+      } else {
+        if (team) {
+          if (!state.lastSide) state.lastSide = new Map();
+          state.lastSide.set(key, team);
+        }
+        state.added.delete(key);
+        state.excluded.add(key);
+        if (row.manual) row.side = null;
+      }
+      saveManual();
+      renderPlayers();
+      renderFixtures();
+      renderCsv();
+    });
+    checkCell.append(checkbox);
 
     const nameCell = document.createElement("td");
     const nameInput = document.createElement("input");
@@ -432,6 +532,7 @@ function renderPlayers() {
 
     if (state.editableOdds) {
       tr.append(
+        checkCell,
         nameCell,
         editableValueCell(fixture, row, "line", key, parseLine),
         editableValueCell(fixture, row, "under", key, parseOdd),
@@ -440,6 +541,7 @@ function renderPlayers() {
       );
     } else {
       tr.append(
+        checkCell,
         nameCell,
         cell(displayLine(fixture, row)),
         cell(Number(displayUnder(fixture, row)).toFixed(2)),
@@ -665,15 +767,18 @@ function teamButton(fixture, row, side, label, currentTeam, suggestedSide) {
     const key = lineKey(fixture.fixtureId, row.lineId);
     // Clicking the active side removes the row; the other side moves it.
     if (state.added.get(key) === side) {
+      if (!state.lastSide) state.lastSide = new Map();
+      state.lastSide.set(key, side);
       state.added.delete(key);
+      state.excluded.add(key);
+      if (row.manual) row.side = null;
     } else {
       state.added.set(key, side);
+      state.excluded.delete(key);
       learnTeam(row.player, side === "home" ? fixture.home : fixture.away);
+      if (row.manual) row.side = side;
     }
-    if (row.manual) {
-      row.side = state.added.get(key) ?? null;
-      saveManual();
-    }
+    saveManual();
     renderPlayers();
     renderFixtures();
     renderCsv();
@@ -942,7 +1047,9 @@ function addManualRow(fixture, { player, line, under, over, side }) {
     side
   };
   entry.rows.push(row);
-  state.added.set(lineKey(fixture.fixtureId, row.lineId), side);
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  state.excluded.delete(key);
+  state.added.set(key, side);
   learnTeam(player, side === "home" ? fixture.home : fixture.away);
   saveManual();
   state.focusManualPlayer = true;
@@ -955,7 +1062,10 @@ function removeManualRow(fixture, row) {
   const entry = manual.get(fixture.fixtureId);
   if (!entry) return;
   entry.rows = entry.rows.filter((r) => r !== row);
-  state.added.delete(lineKey(fixture.fixtureId, row.lineId));
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  state.added.delete(key);
+  state.excluded.delete(key);
+  state.lastSide?.delete(key);
   saveManual();
   renderPlayers();
   renderFixtures();

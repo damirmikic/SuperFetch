@@ -659,8 +659,42 @@ optgroup {
   font-weight: 800;
 }
 
+.handball-table td:nth-child(2) {
+  color: var(--text);
+  font-weight: normal;
+}
+
+.handball-table td:nth-child(n+3):nth-child(-n+5) {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.handball-check-th,
+.handball-check-td {
+  width: 38px;
+  text-align: center;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.handball-player-check,
+.handball-check-all {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
 .daily-table tr.is-muted td {
   color: var(--text-3);
+}
+
+.daily-table tr.is-muted .daily-team-input,
+.daily-table tr.is-muted .daily-odds-edit {
+  opacity: 0.5;
 }
 
 .daily-multi {
