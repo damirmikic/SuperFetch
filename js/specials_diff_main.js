@@ -338,6 +338,13 @@ function createTable(rows, fixture) {
     const line = document.createElement("td");
     line.textContent = row.line === null ? "" : String(row.line);
 
+    // Merkur quotes a line Superbet does not have, while Superbet does price this market: the line moved.
+    if (row.status === "mx" && row.sbLines.length) {
+      line.textContent = `⚠ ${line.textContent}`;
+      line.classList.add("delta-bad");
+      line.title = `Linija nije na Superbetu (Superbet: ${row.sbLines.join(", ")})`;
+    }
+
     const merkur = document.createElement("td");
     merkur.textContent = row.mx ? formatOutcomes(row.mx) : "nema";
 

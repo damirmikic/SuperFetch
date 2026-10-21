@@ -11,6 +11,8 @@ const LEARNED_TEAMS_KEY = "superfetch.handballPlayerTeams";
 // fixture's own fields kept so it still shows if it drops out of the feed.
 const MANUAL_KEY = "superfetch.handballManual";
 const SHOW_ALL_KEY = "superfetch.handballShowAll";
+const EDITABLE_ODDS_KEY = "superfetch.handballEditableOdds";
+const OVERRIDES_KEY = "superfetch.handballOverrides";
 // A manual entry outlives its fixture by this much, then is pruned on load.
 const MANUAL_EXPIRY_MS = 12 * 60 * 60 * 1000;
 const MANUAL_MARKET = { marketId: "1098", marketName: "zbroj golova igrača" };
@@ -42,6 +44,7 @@ const els = {
   exportTeamsButton: document.querySelector("#export-teams-button"),
   clearTeamsButton: document.querySelector("#clear-teams-button"),
   showAll: document.querySelector("#show-all-fixtures"),
+  editableOdds: document.querySelector("#editable-odds"),
   search: document.querySelector("#fixture-search"),
   manualFixtureForm: document.querySelector("#manual-fixture-form"),
   manualHome: document.querySelector("#manual-home"),
@@ -53,6 +56,7 @@ const els = {
 const staticTeams = HANDBALL_PLAYER_TEAMS.map(([player, team]) => ({ player, team, words: nameWords(player) }));
 const learnedTeams = loadLearnedTeams();
 const manual = loadManual();
+const overrides = loadOverrides();
 
 const state = {
   fixtures: [],
@@ -62,6 +66,7 @@ const state = {
   // `${fixtureId}|${feed player name}` -> edited display name
   nameOverrides: new Map(),
   showAll: loadShowAll(),
+  editableOdds: loadEditableOdds(),
   // Normalized words typed into the fixture search; every one must match.
   searchWords: [],
   // Odds the manual form starts with: the last ones entered.
@@ -107,6 +112,12 @@ els.showAll.addEventListener("change", () => {
   try { localStorage.setItem(SHOW_ALL_KEY, state.showAll ? "1" : ""); } catch { /* per-viewer nicety */ }
   renderFixtures();
 });
+if (els.editableOdds) {
+  els.editableOdds.checked = state.editableOdds;
+  els.editableOdds.addEventListener("change", () => {
+    setEditableOdds(els.editableOdds.checked);
+  });
+}
 els.manualFixtureForm.addEventListener("submit", addManualFixture);
 
 // Manual rows remember their side, so a reload puts them back in the CSV.
@@ -132,6 +143,22 @@ async function loadOffer() {
 
     state.fixtures = fixtures;
     state.totalFixtures = totalFixtures;
+    // Remember original values and apply saved overrides
+    for (const fixture of state.fixtures) {
+      for (const row of fixture.players) {
+        row.original = { line: row.line, under: row.under, over: row.over, player: row.player };
+        const key = lineKey(fixture.fixtureId, row.lineId);
+        const ov = overrides[key];
+        if (ov) {
+          if (ov.line !== undefined) row.line = ov.line;
+          if (ov.under !== undefined) row.under = ov.under;
+          if (ov.over !== undefined) row.over = ov.over;
+          if (ov.player !== undefined) {
+            state.nameOverrides.set(nameKey(fixture, row), ov.player);
+          }
+        }
+      }
+    }
     // Selections whose line has left the offer cannot be exported any more.
     const all = allFixtures();
     const liveKeys = new Set(all.flatMap((f) => rowsFor(f).map((p) => lineKey(f.fixtureId, p.lineId))));
@@ -303,6 +330,21 @@ function renderPlayers() {
     toolbar.append(removeFixtureButton);
   }
 
+  const editToggleLabel = document.createElement("label");
+  editToggleLabel.className = "handball-toggle";
+  editToggleLabel.style.margin = "0";
+  editToggleLabel.style.marginLeft = "auto";
+  const editToggleInput = document.createElement("input");
+  editToggleInput.type = "checkbox";
+  editToggleInput.checked = state.editableOdds;
+  editToggleInput.addEventListener("change", () => {
+    setEditableOdds(editToggleInput.checked);
+  });
+  const editToggleSpan = document.createElement("span");
+  editToggleSpan.textContent = "Uredi kvote i granice";
+  editToggleLabel.append(editToggleInput, editToggleSpan);
+  toolbar.append(editToggleLabel);
+
   const manualForm = renderManualForm(fixture, rows);
   if (!rows.length) {
     els.tableWrap.replaceChildren(
@@ -339,9 +381,28 @@ function renderPlayers() {
         row.player = nameInput.value;
         saveManual();
       } else {
+        const val = nameInput.value.trim();
         state.nameOverrides.set(nameKey(fixture, row), nameInput.value);
+        if (!overrides[key]) overrides[key] = {};
+        if (val && val !== row.player) {
+          overrides[key].player = nameInput.value;
+        } else {
+          delete overrides[key].player;
+        }
+        saveOverrides();
       }
       if (state.added.has(key)) renderCsv();
+    });
+    nameInput.addEventListener("blur", () => {
+      if (!row.manual && !nameInput.value.trim() && row.original?.player) {
+        nameInput.value = row.original.player;
+        state.nameOverrides.delete(nameKey(fixture, row));
+        if (overrides[key]) {
+          delete overrides[key].player;
+          saveOverrides();
+        }
+        if (state.added.has(key)) renderCsv();
+      }
     });
     nameCell.append(nameInput);
     if (row.manual) {
@@ -367,15 +428,24 @@ function renderPlayers() {
       removeButton.title = "Obriši ručni unos";
       removeButton.addEventListener("click", () => removeManualRow(fixture, row));
       actions.append(removeButton);
+    }
+
+    if (state.editableOdds) {
       tr.append(
         nameCell,
-        manualValueCell(row, "line", key, parseLine),
-        manualValueCell(row, "under", key, parseOdd),
-        manualValueCell(row, "over", key, parseOdd),
+        editableValueCell(fixture, row, "line", key, parseLine),
+        editableValueCell(fixture, row, "under", key, parseOdd),
+        editableValueCell(fixture, row, "over", key, parseOdd),
         actions
       );
     } else {
-      tr.append(nameCell, cell(row.line), cell(row.under.toFixed(2)), cell(row.over.toFixed(2)), actions);
+      tr.append(
+        nameCell,
+        cell(displayLine(fixture, row)),
+        cell(Number(displayUnder(fixture, row)).toFixed(2)),
+        cell(Number(displayOver(fixture, row)).toFixed(2)),
+        actions
+      );
     }
     tbody.append(tr);
   }
@@ -385,22 +455,81 @@ function renderPlayers() {
   focusManualForm(manualForm);
 }
 
-// An editable line/odds cell of a manual row. An invalid value is flagged and
+// An editable line/odds cell. An invalid value is flagged and
 // not saved, so the CSV keeps the last good one.
-function manualValueCell(row, field, key, parse) {
+function editableValueCell(fixture, row, field, key, parse) {
   const td = document.createElement("td");
   const input = document.createElement("input");
   input.className = "daily-odds-edit";
   input.inputMode = "decimal";
-  input.value = field === "line" ? row.line : row[field].toFixed(2);
+  const val = field === "line"
+    ? displayLine(fixture, row)
+    : (field === "under" ? displayUnder(fixture, row) : displayOver(fixture, row));
+  input.value = field === "line" ? String(val) : Number(val).toFixed(2);
+
+  const updateEditedState = () => {
+    if (row.original && row.original[field] !== undefined) {
+      const origStr = field === "line" ? String(row.original.line) : Number(row.original[field]).toFixed(2);
+      const currStr = field === "line" ? String(row[field]) : Number(row[field]).toFixed(2);
+      if (currStr !== origStr) {
+        input.title = `Original: ${origStr}`;
+        input.classList.add("is-edited");
+        return;
+      }
+    }
+    input.title = "";
+    input.classList.remove("is-edited");
+  };
+  updateEditedState();
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      input.blur();
+    }
+  });
+
   input.addEventListener("input", () => {
     const value = parse(input.value);
     input.classList.toggle("is-invalid", value === null);
     if (value === null) return;
     row[field] = value;
-    saveManual();
+    if (row.manual) {
+      saveManual();
+    } else {
+      if (!overrides[key]) overrides[key] = {};
+      overrides[key][field] = value;
+      saveOverrides();
+    }
+    updateEditedState();
     if (state.added.has(key)) renderCsv();
   });
+
+  input.addEventListener("blur", () => {
+    // If empty on blur for a feed row with original, revert to original
+    if (!row.manual && !input.value.trim() && row.original && row.original[field] !== undefined) {
+      row[field] = row.original[field];
+      if (overrides[key]) {
+        delete overrides[key][field];
+        if (!Object.keys(overrides[key]).length) delete overrides[key];
+        saveOverrides();
+      }
+      input.classList.remove("is-invalid");
+      input.value = field === "line" ? String(row[field]) : Number(row[field]).toFixed(2);
+      updateEditedState();
+      if (state.added.has(key)) renderCsv();
+      return;
+    }
+
+    if (!input.classList.contains("is-invalid")) {
+      const current = row[field];
+      if (current !== undefined && current !== null) {
+        input.value = field === "line" ? String(current) : Number(current).toFixed(2);
+      }
+      updateEditedState();
+    }
+  });
+
   td.append(input);
   return td;
 }
@@ -570,9 +699,12 @@ function buildCsv() {
       const { date, time } = formatKickoff(fixture.startsAt);
       for (const row of rows) {
         const player = displayName(fixture, row).trim() || row.player;
+        const line = displayLine(fixture, row);
+        const under = Number(displayUnder(fixture, row)).toFixed(2);
+        const over = Number(displayOver(fixture, row)).toFixed(2);
         lines.push(formatRow([
           date, time, "", player, marketLabel(row), "", "", "",
-          row.line, row.under.toFixed(2), row.over.toFixed(2), "", ""
+          line, under, over, "", ""
         ]));
       }
     }
@@ -912,6 +1044,40 @@ function loadShowAll() {
   }
 }
 
+function loadEditableOdds() {
+  try {
+    const val = localStorage.getItem(EDITABLE_ODDS_KEY);
+    return val === null ? true : val === "1";
+  } catch {
+    return true;
+  }
+}
+
+function setEditableOdds(enabled) {
+  state.editableOdds = Boolean(enabled);
+  try {
+    localStorage.setItem(EDITABLE_ODDS_KEY, state.editableOdds ? "1" : "0");
+  } catch { /* ignore */ }
+  if (els.editableOdds) els.editableOdds.checked = state.editableOdds;
+  renderPlayers();
+}
+
+function loadOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(OVERRIDES_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveOverrides() {
+  try {
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (error) {
+    console.warn("Izmjene kvota/granica nisu sačuvane", error);
+  }
+}
+
 // Team names for the manual fixture form, from the roster and learned links.
 function renderTeamOptions() {
   const teams = new Set([...staticTeams.map((e) => e.team), ...[...learnedTeams.values()].map(([, team]) => team)]);
@@ -937,9 +1103,28 @@ function nameKey(fixture, row) {
   return `${fixture.fixtureId}|${row.player}`;
 }
 
+function displayLine(fixture, row) {
+  if (row.manual) return row.line;
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  return overrides[key]?.line ?? row.line;
+}
+
+function displayUnder(fixture, row) {
+  if (row.manual) return row.under;
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  return overrides[key]?.under ?? row.under;
+}
+
+function displayOver(fixture, row) {
+  if (row.manual) return row.over;
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  return overrides[key]?.over ?? row.over;
+}
+
 function displayName(fixture, row) {
   if (row.manual) return row.player;
-  return state.nameOverrides.get(nameKey(fixture, row)) ?? row.player;
+  const key = lineKey(fixture.fixtureId, row.lineId);
+  return overrides[key]?.player ?? state.nameOverrides.get(nameKey(fixture, row)) ?? row.player;
 }
 
 function marketLabel(row) {

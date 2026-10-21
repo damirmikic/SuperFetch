@@ -29,6 +29,7 @@
           <a href="daily-specials.html" class="sport-link">Dnevni Specijali</a>
           <a href="fantasy.html" class="sport-link">Fantasy</a>
           <a href="missing.html" class="sport-link">Missing</a>
+          <a href="specials-diff.html" class="sport-link">Specijali razlike</a>
         </nav>
         <div class="topbar-controls">
           <div id="status" class="status-pill" role="status">Starting…</div>
@@ -54,6 +55,10 @@
             <input id="show-all-fixtures" type="checkbox">
             <span>Prikaži i mečeve bez igrača</span>
           </label>
+          <label class="handball-toggle">
+            <input id="editable-odds" type="checkbox" checked>
+            <span>Uređivanje kvota i granica</span>
+          </label>
 
           <div id="fixture-list" class="daily-events-list"></div>
 
@@ -77,6 +82,10 @@
             Svaki klik na „+ Dom" / „+ Gost" pamti tim igrača u ovom browseru. Kad se igrač ponovo pojavi,
             dugme njegovog tima je označeno, a „Dodaj poznate" doda sve takve igrače odjednom.
             „Izvezi veze" daje naučene veze u obliku za fajl, da vrijede svugdje.
+          </p>
+          <p class="fantasy-note">
+            Kvote i granice igrača su editabilne (opcija „Uređivanje kvota i granica”). Izmjene se automatski
+            ažuriraju u CSV-u i pamte u browseru. Za vraćanje na originalnu vrijednost iz ponude obriši polje.
           </p>
           <p class="fantasy-note">
             Za meč bez igrača u ponudi: odaberi ga (uključi „Prikaži i mečeve bez igrača") i unesi
